@@ -1,0 +1,5 @@
+build/
+VitaminC
+*.bin
+.vscode
+*.exe
