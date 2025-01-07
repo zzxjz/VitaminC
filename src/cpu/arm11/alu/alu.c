@@ -202,7 +202,7 @@ void ARM11_ALU(struct ARM11MPCore* ARM11)
     const int opcode = (curinstr >> 21) & 0xF;
     const bool s = curinstr & (1<<20);
     const int rd = (curinstr >> 12) & 0xF;
-    const u32 rn = ARM11->R[(curinstr >> 16) & 0xF];
+    const u32 rn = ARM11_GetReg(ARM11, (curinstr >> 16) & 0xF);
     u32 shifterout;
 
     if (curinstr & (1<<25)) // immediate
@@ -217,7 +217,7 @@ void ARM11_ALU(struct ARM11MPCore* ARM11)
     }
     else
     {
-        u64 rm = ARM11->R[(curinstr & 0xF)];
+        u64 rm = ARM11_GetReg(ARM11, curinstr & 0xF);
 
         switch ((curinstr >> 4) & 0b111)
         {
@@ -234,7 +234,7 @@ void ARM11_ALU(struct ARM11MPCore* ARM11)
         }
         case 1: // lsl reg
         {
-            const u8 rs = ARM11->R[(curinstr >> 8) & 0xF] & 0xFF;
+            const u8 rs = ARM11_GetReg(ARM11, (curinstr >> 8) & 0xF) & 0xFF;
             rm <<= rs;
             
             if (s && rs)
@@ -258,7 +258,7 @@ void ARM11_ALU(struct ARM11MPCore* ARM11)
         }
         case 3: // lsr reg
         {
-            const u8 rs = ARM11->R[(curinstr >> 8) & 0xF] & 0xFF;
+            const u8 rs = ARM11_GetReg(ARM11, (curinstr >> 8) & 0xF) & 0xFF;
             
             if (s && rs)
                 ARM11->Carry = (rm >> (rs-1)) & 0x1;
@@ -283,7 +283,7 @@ void ARM11_ALU(struct ARM11MPCore* ARM11)
         }
         case 5: // asr reg
         {
-            const u8 rs = ARM11->R[(curinstr >> 8) & 0xF] & 0xFF;
+            const u8 rs = ARM11_GetReg(ARM11, (curinstr >> 8) & 0xF) & 0xFF;
             
             if (s && rs)
                 ARM11->Carry = ((s32)rm >> (rs-1)) & 0x1;
@@ -315,7 +315,7 @@ void ARM11_ALU(struct ARM11MPCore* ARM11)
         }
         case 7: // ror reg
         {
-            const u8 rs = ARM11->R[(curinstr >> 8) & 0xF] & 0xFF;
+            const u8 rs = ARM11_GetReg(ARM11, (curinstr >> 8) & 0xF) & 0xFF;
 
             shifterout = ARM11_ROR32(rm, rs);
 

@@ -26,7 +26,15 @@ int main()
         return 0;
     }
 
-    ARM11_RunInterpreter(&ARM11[0]);
+    u64 target = 8;
+    while (true)
+    {
+        ARM11_RunInterpreter(&ARM11[0], target);
+        ARM11_RunInterpreter(&ARM11[0], target);
+        ARM11_RunInterpreter(&ARM11[0], target);
+        ARM11_RunInterpreter(&ARM11[0], target);
+        target += 8;
+    }
 
     Emu_Free();
 }

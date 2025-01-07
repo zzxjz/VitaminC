@@ -1,7 +1,9 @@
 #include <string.h>
+#include <stdio.h>
 #include "interpreter.h"
 #include "../../patternmatch.h"
 #include "../../types.h"
+#include "../../bus.h"
 
 // stolen from melonds oops
 alignas(32) static const u16 CondLookup[16] =
@@ -77,11 +79,12 @@ void* ARM11_InitInstrLUT(const u16 bits)
 	// coprocessor data processing
 	CHECK(111000000000, 111100000001, NULL) // cdp?
 	// coprocessor register transfers
-	CHECK(111000000001, 111100000001, NULL) // mcr/mrc
+	CHECK(111000000001, 111100010001, NULL) // mcr
+	CHECK(111000100001, 111100010001, NULL) // mrc
 	// multiple load/store
-	CHECK(100000000000, 111000000000, NULL) // ldm/stm
+	CHECK(100000000000, 111000000000, ARM11_LDM_STM) // ldm/stm
 	// branch
-	CHECK(101000000000, 111000000000, NULL) // b/bl
+	CHECK(101000000000, 111000000000, ARM11_B_BL) // b/bl
 
 	return NULL; // undef instr (raise exception)
 }
@@ -112,20 +115,27 @@ char* ARM11_Init()
 	for (int i = 0; i < 4; i++)
 	{
 		ARM11[i].NextStep = ARM11_StartFetch;
-		ARM11_Branch(&ARM11[i], 0xFFFF0000);
+		ARM11_Branch(&ARM11[i], 0);
 		ARM11[i].Mode = MODE_SVC;
+		ARM11[i].CP15.Control = 0x00054078;
+		ARM11[i].CP15.AuxControl = 0x0F;
 	}
 	return NULL;
 }
 
 void ARM11_Branch(struct ARM11MPCore* ARM11, const u32 addr)
 {
+	printf("Jumping to %08X\n", addr);
 	ARM11->PC = addr;
 }
 
 inline u32 ARM11_GetReg(struct ARM11MPCore* ARM11, const int reg)
 {
-	return ARM11->R[reg];
+	if (reg == 15)
+	{
+		return ARM11->PC + 4;
+	}
+	else return ARM11->R[reg];
 }
 
 inline void ARM11_WriteReg(struct ARM11MPCore* ARM11, const int reg, const u32 val, const bool restore)
@@ -140,13 +150,14 @@ inline void ARM11_WriteReg(struct ARM11MPCore* ARM11, const int reg, const u32 v
 	}
 }
 
-void ARM11_CodeFetch(struct ARM11MPCore* ARM11)
+u32 ARM11_CodeFetch(struct ARM11MPCore* ARM11)
 {
-
+	return Bus11_Load32(ARM11->PC);
 }
 
 void ARM11_StartFetch(struct ARM11MPCore* ARM11)
 {
+	ARM11->Instr.Data = ARM11_CodeFetch(ARM11); 
 	ARM11->PC += 4;
 }
 
@@ -160,26 +171,40 @@ void ARM11_StartExec(struct ARM11MPCore* ARM11)
 	{
     	const u16 decodebits = ((instr >> 16) & 0xFF0) | ((instr >> 4) & 0xF);
 
-		(ARM11_InstrLUT[decodebits])(ARM11);
+		if (ARM11_InstrLUT[decodebits])
+			(ARM11_InstrLUT[decodebits])(ARM11);
+		else
+		{
+			printf("UNIMPL INSTR: %08X %08X!!!\n", ARM11->Instr.Data, ARM11->PC);
+			for (int i = 0; i < 16; i++) printf("%i, %08X ", i, ARM11->R[i]);
+			while (true)
+				;
+		}
+		for (int i = 0; i < 16; i++) printf("%i, %08X ", i, ARM11->R[i]);
+		printf("\n");
 	}
 	else if (condcode == COND_NV) // do special handling for unconditional instructions
 	{
-		DecodeUncondInstr(instr);
+		printf("UNCOND: %08X!!!!\n", ARM11->Instr.Data);
+		//DecodeUncondInstr(instr);
 	}
 	else if (false) // TODO: handle illegal BKPTs? might still execute regardless of condition fail like the ARM9?
 	{
-
 	}
 	else
 	{
 		// instruction was not executed.
+		printf("INSTR: %08X SKIP\n", ARM11->Instr.Data);
 	}
 }
 
-void ARM11_RunInterpreter(struct ARM11MPCore* ARM11)
+void ARM11_RunInterpreter(struct ARM11MPCore* ARM11, u64 target)
 {
-	while (true)
+	while (ARM11->Timestamp <= target)
 	{
-        (ARM11->NextStep)(ARM11);
+        //(ARM11->NextStep)(ARM11);
+		ARM11_StartFetch(ARM11);
+		ARM11_StartExec(ARM11);
+		ARM11->Timestamp++;
 	}
 }

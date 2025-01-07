@@ -12,7 +12,6 @@ char* Bus_Init()
     if (file != NULL)
     {
         int num = fread(Bios11, 1, 0x10000, file);
-        printf("%i %i %i\n", num, feof(file), ferror(file));
         fclose(file);
         if (num != 0x10000)
         {
@@ -31,9 +30,23 @@ void Bus_Free()
     free(Bios11);
 }
 
-u8* Bus_GetPtr(const u32 addr)
+u32 Bus11_Load32(const u32 addr)
 {
-    if ((addr < 0x20000) || (addr > 0xFFFF0000))
+    u8* val = Bus11_GetPtr(addr & ~3);
+    if (val) return *(u32*)val;
+    return 0;
+}
+
+u8 Bus11_Load8(const u32 addr)
+{
+    u8* val = Bus11_GetPtr(addr & ~3);
+    if (val) return *(u8*)val;
+    return 0;
+}
+
+u8* Bus11_GetPtr(const u32 addr)
+{
+    if ((addr < 0x20000) || (addr >= 0xFFFF0000))
         return &Bios11[addr & 0xFFFF];
 
     printf("UNK ADDR: %08X", addr);

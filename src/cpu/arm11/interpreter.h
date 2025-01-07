@@ -150,7 +150,64 @@ struct ARM11MPCore
 		};
 	} FIQ;
 	struct Instruction Instr;
+	u64 Timestamp;
 	void (*NextStep)(struct ARM11MPCore* ARM11);
+	struct
+	{
+		union
+		{
+			u32 Control;
+			struct
+			{
+				bool MMU : 1;
+				bool AlignmentFault : 1;
+				bool L1DCache : 1;
+				u32 : 5;
+				bool SysProt : 1;
+				bool ROMProt : 1;
+				bool : 1;
+				bool ProgramFlowPred : 1;
+				bool L1ICache : 1;
+				bool HighVector : 1;
+				bool : 1;
+				bool ARMv4Thingy : 1;
+				u32 : 6;
+				bool ExtPageTable : 1;
+				bool : 1;
+				bool ExceptionEndian : 1;
+				bool : 1;
+				bool NMFIwhat : 1;
+				bool TEXRemap : 1;
+				bool ForceAP : 1;
+				u32 : 2;
+			};
+		};
+		union
+		{
+			u8 AuxControl;
+			struct
+			{
+				bool ReturnStack : 1;
+				bool DynamicBranchPred : 1;
+				bool StaticBranchPred : 1;
+				bool InstrFolding : 1;
+				bool ExclusiveL1L2 : 1;
+				bool CoherencyMode : 1;
+				bool L1ParityCheck : 1;
+			};
+		};
+		union
+		{
+			u32 CoprocAccessControl;
+			struct
+			{
+				u32 : 20;
+				u32 CP10Access : 2;
+				u32 CP11Access : 2;
+				u32 : 8;
+			};
+		};
+	} CP15;
 };
 
 extern void (*ARM11_InstrLUT[0x1000]) (struct ARM11MPCore* ARM11);
@@ -167,7 +224,14 @@ u32 ARM11_GetReg(struct ARM11MPCore* ARM11, const int reg);
 void ARM11_WriteReg(struct ARM11MPCore* ARM11, const int reg, const u32 val, const bool restore);
 void ARM11_StartFetch(struct ARM11MPCore* ARM11);
 void ARM11_StartExec(struct ARM11MPCore* ARM11);
-void ARM11_RunInterpreter(struct ARM11MPCore* ARM11);
+void ARM11_RunInterpreter(struct ARM11MPCore* ARM11, u64 target);
 
 void ARM11_ALU(struct ARM11MPCore* ARM11);
+
 void ARM11_LDR_STR(struct ARM11MPCore* ARM11);
+void ARM11_LDM_STM(struct ARM11MPCore* ARM11);
+
+void ARM11_B_BL(struct ARM11MPCore* ARM11);
+
+void ARM11_MCR(struct ARM11MPCore* ARM11);
+void ARM11_CP15_Store(struct ARM11MPCore* ARM11, u16 cmd, u32 val);

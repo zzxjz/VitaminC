@@ -14,14 +14,14 @@ void ARM11_LDR_STR(struct ARM11MPCore* ARM11)
     const int rn = (curinstr >> 16) & 0xF;
     const int rd = (curinstr >> 12) & 0xF;
 
-    u32 addr = ARM11->R[rn];
+    u32 addr = ARM11_GetReg(ARM11, rn);
     u32 offset;
-    if (i) offset = curinstr & 0xFFF;
+    if (!i) offset = curinstr & 0xFFF;
     else
     {
         const u8 shifttype = ((curinstr >> 5) & 0x3);
         u8 shiftimm = ((curinstr >> 7) & 0x1F);
-        offset = ARM11->R[curinstr & 0xF];
+        offset = ARM11_GetReg(ARM11, curinstr & 0xF);
 
         switch(shifttype)
         {
@@ -56,17 +56,27 @@ void ARM11_LDR_STR(struct ARM11MPCore* ARM11)
         }
         }
     }
-    if (!u) offset = -offset;
-    const u32 writeback = addr + offset;
-    if (p) addr += offset;
-    else if (w)
+    u32 writeback;
+
+    if (!u)
+    {
+        writeback = addr - offset;
+        if (p) addr -= offset;
+    }
+    else
+    {
+        writeback = addr + offset;
+        if (p) addr += offset;
+    }
+
+    if (!p && w)
         ; // todo: translate
 
     if (b)
     {
         if (l) // ldrb
         {
-            ARM11_WriteReg(ARM11, rd, *Bus_GetPtr(addr), false);
+            ARM11_WriteReg(ARM11, rd, Bus11_Load8(addr), false);
         }
         else printf("WARNING: STRB UNIMPLEMENTED\n"); // strb
     }
@@ -74,7 +84,8 @@ void ARM11_LDR_STR(struct ARM11MPCore* ARM11)
     {
         if (l) // ldr
         {
-            ARM11_WriteReg(ARM11, rd, *(u32*)Bus_GetPtr(addr), false);
+            printf("LOAD32: %08X\n", addr);
+            ARM11_WriteReg(ARM11, rd, Bus11_Load32(addr), false);
         }
         else printf("WARNING: STR UNIMPLEMENTED\n"); // str
     }
@@ -82,5 +93,48 @@ void ARM11_LDR_STR(struct ARM11MPCore* ARM11)
     if (w || !p)
     {
         ARM11_WriteReg(ARM11, rn, writeback, false);
+    }
+}
+
+void ARM11_LDM_STM(struct ARM11MPCore* ARM11)
+{
+    const u32 curinstr = ARM11->Instr.Data;
+    const bool p = curinstr & (1<<24);
+    const bool u = curinstr & (1<<23);
+    const bool s = curinstr & (1<<22);
+    const bool w = curinstr & (1<<21);
+    const bool l = curinstr & (1<<20);
+    const u32 rn = ARM11_GetReg(ARM11, (curinstr >> 16) & 0xF);
+    const int r15 = curinstr & (1<<15);
+    u16 rlist = curinstr & 0xFFFF;
+    const int rcount = __builtin_popcount(rlist);
+    u32 wbbase;
+    u32 base;
+
+    if (!u) wbbase = base = rn - (rcount*4); // checkme: does this actually decrement now?
+    else
+    {
+        base = rn;
+        wbbase = rn + (rcount*4);
+    }
+
+    if (l && s && ! r15) printf("WARNING: USER MODE LDM UNIMPLEMENTED\n"); // todo: user mode regs
+
+    for (int i = 0; i < rlist; i++)
+    {
+        int reg = __builtin_ctz(rlist);
+        rlist &= ~1<<reg;
+
+        if (p^u) base += 4;
+
+        if (l) ARM11_WriteReg(ARM11, reg, Bus11_Load32(base), s);
+        else printf("WARNING: STM UNIMPLEMENTED\n"); // todo: stores
+
+        if (!(p^u)) base += 4;
+    }
+
+    if (w)
+    {
+        ARM11_WriteReg(ARM11, rn, wbbase, false);
     }
 }
