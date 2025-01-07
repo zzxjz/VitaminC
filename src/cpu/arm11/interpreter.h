@@ -22,6 +22,17 @@ enum : u8
 	COND_NV,
 };
 
+enum : u8
+{
+	MODE_USR = 0x10,
+	MODE_FIQ = 0x11,
+	MODE_IRQ = 0x12,
+	MODE_SVC = 0x13,
+	MODE_ABT = 0x17,
+	MODE_UND = 0x1B,
+	MODE_SYS = 0x1F,
+};
+
 struct alignas(u64) Instruction
 {
 	u32 Data;
@@ -76,63 +87,68 @@ struct ARM11MPCore
 			bool Zero : 1;
 			bool Negative : 1;
 		};
+		struct
+		{
+			u32 : 28;
+			u32 Flags : 4;
+		};
 	};
 	u32* SPSR;
-	union
+	union // SVC
 	{
-		u32 R_SVC[3];
+		u32 R[3];
 		struct
 		{
-			u32 SP_SVC;
-			u32 LR_SVC;
-			u32 SPSR_SVC;
+			u32 SP;
+			u32 LR;
+			u32 SPSR;
 		};
-	};
-	union
+	} SVC;
+	union // ABT
 	{
-		u32 R_ABT[3];
+		u32 R[3];
 		struct
 		{
-			u32 SP_ABT;
-			u32 LR_ABT;
-			u32 SPSR_ABT;
+			u32 SP;
+			u32 LR;
+			u32 SPSR;
 		};
-	};
-	union
+	} ABT;
+	union // UND
 	{
-		u32 R_UND[3];
+		u32 R[3];
 		struct
 		{
-			u32 SP_UND;
-			u32 LR_UND;
-			u32 SPSR_UND;
+			u32 SP;
+			u32 LR;
+			u32 SPSR;
 		};
-	};
-	union
+	} UND;
+	union // IRQ
 	{
-		u32 R_IRQ[3];
+		u32 R[3];
 		struct
 		{
-			u32 SP_IRQ;
-			u32 LR_IRQ;
-			u32 SPSR_IRQ;
+			u32 SP;
+			u32 LR;
+			u32 SPSR;
 		};
-	};
-	union
+	} IRQ;
+	union // FIQ
 	{
-		u32 R_FIQ[8];
+		u32 R[8];
 		struct
 		{
-			u32 R8_FIQ;
-			u32 R9_FIQ;
-			u32 R10_FIQ;
-			u32 R11_FIQ;
-			u32 R12_FIQ;
-			u32 SP_FIQ;
-			u32 LR_FIQ;
-			u32 SPSR_FIQ;
+			u32 R8;
+			u32 R9;
+			u32 R10;
+			u32 R11;
+			u32 R12;
+			u32 SP;
+			u32 LR;
+			u32 SPSR;
 		};
-	};
+	} FIQ;
 	struct Instruction Instr;
 	void (*NextStep)(struct ARM11MPCore* ARM11);
 };
@@ -152,3 +168,6 @@ void ARM11_WriteReg(struct ARM11MPCore* ARM11, const int reg, const u32 val, con
 void ARM11_StartFetch(struct ARM11MPCore* ARM11);
 void ARM11_StartExec(struct ARM11MPCore* ARM11);
 void ARM11_RunInterpreter(struct ARM11MPCore* ARM11);
+
+void ARM11_ALU(struct ARM11MPCore* ARM11);
+void ARM11_LDR_STR(struct ARM11MPCore* ARM11);

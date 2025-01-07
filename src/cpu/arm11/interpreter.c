@@ -2,7 +2,6 @@
 #include "interpreter.h"
 #include "../../patternmatch.h"
 #include "../../types.h"
-#include "alu/alu.h"
 
 // stolen from melonds oops
 alignas(32) static const u16 CondLookup[16] =
@@ -74,13 +73,15 @@ void* ARM11_InitInstrLUT(const u16 bits)
 	// data processing
 	CHECK(000000000000, 110000000000, ARM11_ALU) // alu
 	// load/store
-	CHECK(010000000000, 110000000000, NULL) // load/store
+	CHECK(010000000000, 110000000000, ARM11_LDR_STR) // load/store
 	// coprocessor data processing
 	CHECK(111000000000, 111100000001, NULL) // cdp?
 	// coprocessor register transfers
 	CHECK(111000000001, 111100000001, NULL) // mcr/mrc
 	// multiple load/store
 	CHECK(100000000000, 111000000000, NULL) // ldm/stm
+	// branch
+	CHECK(101000000000, 111000000000, NULL) // b/bl
 
 	return NULL; // undef instr (raise exception)
 }
@@ -112,6 +113,7 @@ char* ARM11_Init()
 	{
 		ARM11[i].NextStep = ARM11_StartFetch;
 		ARM11_Branch(&ARM11[i], 0xFFFF0000);
+		ARM11[i].Mode = MODE_SVC;
 	}
 	return NULL;
 }
@@ -152,10 +154,9 @@ void ARM11_StartExec(struct ARM11MPCore* ARM11)
 {
     const u32 instr = ARM11->Instr.Data;
     const u8 condcode = instr >> 28;
-	const u8 flagbits = ARM11->CPSR >> 28;
 	
 	// Todo: handle IRQs
-	if (CondLookup[condcode] & (1<<flagbits))
+	if (CondLookup[condcode] & (1<<ARM11->Flags))
 	{
     	const u16 decodebits = ((instr >> 16) & 0xFF0) | ((instr >> 4) & 0xF);
 
@@ -173,7 +174,6 @@ void ARM11_StartExec(struct ARM11MPCore* ARM11)
 	{
 		// instruction was not executed.
 	}
-
 }
 
 void ARM11_RunInterpreter(struct ARM11MPCore* ARM11)
