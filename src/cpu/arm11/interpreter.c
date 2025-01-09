@@ -52,9 +52,9 @@ void* ARM11_InitInstrLUT(const u16 bits)
 	CHECK(000001001001, 111111111111, NULL) // umaal
 	CHECK(000010001001, 111110001111, NULL) // long multiplies
 	// control/dsp extension space
-	CHECK(000100000000, 111110111111, NULL) // mrs
-	CHECK(000100100000, 111110111111, NULL) // msr (reg)
-	CHECK(001100100000, 111110110000, NULL) // msr (imm) / hints
+	CHECK(000100000000, 111110111111, ARM11_MRS) // mrs
+	CHECK(000100100000, 111110111111, ARM11_MSRReg) // msr (reg)
+	CHECK(001100100000, 111110110000, ARM11_MSRImm_Hints) // msr (imm) / hints
 	CHECK(000100100001, 111111111111, NULL) // bx
 	CHECK(000100100010, 111111111111, NULL) // bxj
 	CHECK(000101100001, 111111111111, NULL) // clz
@@ -79,8 +79,8 @@ void* ARM11_InitInstrLUT(const u16 bits)
 	// coprocessor data processing
 	CHECK(111000000000, 111100000001, NULL) // cdp?
 	// coprocessor register transfers
-	CHECK(111000000001, 111100010001, NULL) // mcr
-	CHECK(111000100001, 111100010001, NULL) // mrc
+	CHECK(111000000001, 111100010001, ARM11_MCR_MRC) // mcr
+	CHECK(111000010001, 111100010001, ARM11_MCR_MRC) // mrc
 	// multiple load/store
 	CHECK(100000000000, 111000000000, ARM11_LDM_STM) // ldm/stm
 	// branch
@@ -115,18 +115,166 @@ char* ARM11_Init()
 	for (int i = 0; i < 4; i++)
 	{
 		ARM11[i].NextStep = ARM11_StartFetch;
-		ARM11_Branch(&ARM11[i], 0);
+		ARM11_Branch(&ARM11[i], 0, false);
 		ARM11[i].Mode = MODE_SVC;
 		ARM11[i].CP15.Control = 0x00054078;
 		ARM11[i].CP15.AuxControl = 0x0F;
+		ARM11[i].CP15.DCacheLockdown = 0xFFFFFFF0;
+		ARM11[i].CPUID = i;
 	}
 	return NULL;
 }
 
-void ARM11_Branch(struct ARM11MPCore* ARM11, const u32 addr)
+void ARM11_UpdateMode(struct ARM11MPCore* ARM11, u8 newmode)
+{
+	if (ARM11->Mode == newmode) return;
+
+	switch (ARM11->Mode)
+	{
+	case 0x10: // USR
+	case 0x1F: // SYS
+		memcpy(&ARM11->USR.R8, &ARM11->R8, 7*4);
+		break;
+
+	case 0x11: // FIQ
+		memcpy(&ARM11->FIQ.R8, &ARM11->R8, 7*4);
+		break;
+
+	case 0x12: // IRQ
+		memcpy(&ARM11->USR.R8, &ARM11->R8, 5*4);
+		memcpy(&ARM11->IRQ.SP, &ARM11->SP, 2*4);
+		break;
+
+	case 0x13: // SVC
+		memcpy(&ARM11->USR.R8, &ARM11->R8, 5*4);
+		memcpy(&ARM11->SVC.SP, &ARM11->SP, 2*4);
+		break;
+
+	case 0x17: // ABT
+		memcpy(&ARM11->USR.R8, &ARM11->R8, 5*4);
+		memcpy(&ARM11->ABT.SP, &ARM11->SP, 2*4);
+		break;
+	
+	case 0x1B: // UND
+		memcpy(&ARM11->USR.R8, &ARM11->R8, 5*4);
+		memcpy(&ARM11->UND.SP, &ARM11->SP, 2*4);
+		break;
+	}
+
+	switch (ARM11->Mode)
+	{
+	case 0x10: // USR
+	case 0x1F: // SYS
+		memcpy(&ARM11->R8, &ARM11->USR.R8, 7*4);
+		ARM11->SPSR = NULL;
+		break;
+
+	case 0x11: // FIQ
+		memcpy(&ARM11->R8, &ARM11->FIQ.R8, 7*4);
+		ARM11->SPSR = &ARM11->FIQ.SPSR;
+		break;
+
+	case 0x12: // IRQ
+		memcpy(&ARM11->R8, &ARM11->USR.R8, 5*4);
+		memcpy(&ARM11->SP, &ARM11->IRQ.SP, 2*4);
+		ARM11->SPSR = &ARM11->IRQ.SPSR;
+		break;
+
+	case 0x13: // SVC
+		memcpy(&ARM11->R8, &ARM11->USR.R8, 5*4);
+		memcpy(&ARM11->SP, &ARM11->SVC.SP, 2*4);
+		ARM11->SPSR = &ARM11->SVC.SPSR;
+		break;
+
+	case 0x17: // ABT
+		memcpy(&ARM11->R8, &ARM11->USR.R8, 5*4);
+		memcpy(&ARM11->SP, &ARM11->ABT.SP, 2*4);
+		ARM11->SPSR = &ARM11->ABT.SPSR;
+		break;
+	
+	case 0x1B: // UND
+		memcpy(&ARM11->R8, &ARM11->USR.R8, 5*4);
+		memcpy(&ARM11->SP, &ARM11->UND.SP, 2*4);
+		ARM11->SPSR = &ARM11->UND.SPSR;
+		break;
+	}
+}
+
+void ARM11_MRS(struct ARM11MPCore* ARM11)
+{
+	const u32 curinstr = ARM11->Instr.Data;
+	const bool r = curinstr & (1<<22);
+	const u8 rd = (curinstr >> 12) & 0xF;
+
+	if (r) printf("SPSR READ!!!\n");
+	else ARM11_WriteReg(ARM11, rd, ARM11->CPSR, false);
+}
+
+void ARM11_MSR(struct ARM11MPCore* ARM11, u32 val)
+{
+	const u32 curinstr = ARM11->Instr.Data;
+	const bool r = curinstr & (1<<22);
+	const u8 c = curinstr & (1<<16);
+	const u8 x = curinstr & (1<<17);
+	const u8 s = curinstr & (1<<18);
+	const u8 f = curinstr & (1<<19);
+
+	u32 writemask;
+	if (ARM11->Mode == MODE_USR)
+	{
+		writemask = 0xF80F0200;
+	}
+	else
+	{
+		writemask = 0xF90F03FF;
+	}
+
+	if (!c) writemask &= 0xFFFFFF00;
+	if (!x) writemask &= 0xFFFF00FF;
+	if (!s) writemask &= 0xFF00FFFF;
+	if (!f) writemask &= 0x00FFFFFF;
+
+	val &= writemask;
+
+	if (r) *ARM11->SPSR = val;
+	else
+	{
+		if (val & 0x01000020) printf("SETTING T OR J BIT!!! PANIC!!!!!!\n");
+
+		ARM11->CPSR = val;
+	}
+}
+
+void ARM11_MSRReg(struct ARM11MPCore* ARM11)
+{
+	const u32 curinstr = ARM11->Instr.Data;
+	const u32 val = ARM11_GetReg(ARM11, curinstr & 0xF);
+
+	ARM11_MSR(ARM11, val);
+}
+
+void ARM11_MSRImm_Hints(struct ARM11MPCore* ARM11)
+{
+	const u32 curinstr = ARM11->Instr.Data;
+	const u8 imm = curinstr & 0xFF;
+	const u8 rorimm = ((curinstr >> 8) & 0xF) * 2;
+
+	const u32 val = ARM11_ROR32(imm, rorimm);
+
+	ARM11_MSR(ARM11, val);
+}
+
+void ARM11_Branch(struct ARM11MPCore* ARM11, const u32 addr, const bool restore)
 {
 	printf("Jumping to %08X\n", addr);
 	ARM11->PC = addr;
+
+	if (restore)
+	{
+		const u32 spsr = *ARM11->SPSR;
+		ARM11_UpdateMode(ARM11, spsr & 0x1F);
+		ARM11->CPSR = spsr;
+	}
 }
 
 inline u32 ARM11_GetReg(struct ARM11MPCore* ARM11, const int reg)
@@ -142,7 +290,7 @@ inline void ARM11_WriteReg(struct ARM11MPCore* ARM11, const int reg, const u32 v
 {
 	if (reg == 15)
 	{
-		ARM11_Branch(ARM11, val);
+		ARM11_Branch(ARM11, val, restore);
 	}
 	else
 	{

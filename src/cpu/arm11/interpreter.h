@@ -94,6 +94,21 @@ struct ARM11MPCore
 		};
 	};
 	u32* SPSR;
+	u8 CPUID;
+	union // USR
+	{
+		u32 R[7];
+		struct
+		{
+			u32 R8;
+			u32 R9;
+			u32 R10;
+			u32 R11;
+			u32 R12;
+			u32 SP;
+			u32 LR;
+		};
+	} USR;
 	union // SVC
 	{
 		u32 R[3];
@@ -207,6 +222,74 @@ struct ARM11MPCore
 				u32 : 8;
 			};
 		};
+		union
+		{
+			u32 TransTblBaseR0;
+			struct
+			{
+				bool : 1;
+				bool Shared : 1;
+				bool ECC : 1;
+				bool RGN : 1;
+				u32 : 9;
+				u32 : 18;
+			} TTB_R0;
+		};
+		union
+		{
+			u32 TransTblBaseR1;
+			struct
+			{
+				bool : 1;
+				bool Shared : 1;
+				bool : 1;
+				bool RGN : 1;
+				u32 : 9;
+				u32 : 18;
+			} TTB_R1;
+		};
+		union
+		{
+			u8 TransTblControl;
+			u8 N : 3;
+		};
+		u32 DomainAccessControl;
+		union
+		{
+			u16 DataFaultStatus;
+			struct
+			{
+				u16 Type1 : 4;
+				u16 Domain : 4;
+				u16 : 2;
+				u16 Type2 : 1;
+				bool ReadOrWrite : 1;
+				bool ExtAbtQual : 1;
+			} DataFault;
+		};
+		union
+		{
+			u16 InstrFaultStatus;
+			struct
+			{
+				u16 Type1 : 4;
+				u16 Domain : 4;
+				u16 : 2;
+				u16 Type2 : 1;
+				bool : 1;
+				bool ExtAbtQual : 1;
+			} InstrFault;
+		};
+		u32 DataFaultAddress;
+		u32 WatchpointFaultAddress;
+		u32 DCacheLockdown;
+		u32 TLBLockdown;
+		u32 PrimaryMemRgnRemap;
+		u32 NormalMemRgnRemap;
+		u32 FCSEPID;
+		u32 ContextID;
+		u32 ThreadID[3];
+		u32 PerfMonitorControl;
 	} CP15;
 };
 
@@ -219,7 +302,7 @@ void* ARM11_InitInstrLUT(const u16 bits);
 u32 ARM11_ROR32(u32 val, u8 ror);
 
 char* ARM11_Init();
-void ARM11_Branch(struct ARM11MPCore* ARM11, const u32 addr);
+void ARM11_Branch(struct ARM11MPCore* ARM11, const u32 addr, const bool restore);
 u32 ARM11_GetReg(struct ARM11MPCore* ARM11, const int reg);
 void ARM11_WriteReg(struct ARM11MPCore* ARM11, const int reg, const u32 val, const bool restore);
 void ARM11_StartFetch(struct ARM11MPCore* ARM11);
@@ -233,5 +316,11 @@ void ARM11_LDM_STM(struct ARM11MPCore* ARM11);
 
 void ARM11_B_BL(struct ARM11MPCore* ARM11);
 
-void ARM11_MCR(struct ARM11MPCore* ARM11);
-void ARM11_CP15_Store(struct ARM11MPCore* ARM11, u16 cmd, u32 val);
+void ARM11_MCR_MRC(struct ARM11MPCore* ARM11);
+void ARM11_CP15_Store_Single(struct ARM11MPCore* ARM11, u16 cmd, u32 val);
+u32 ARM11_CP15_Load_Single(struct ARM11MPCore* ARM11, u16 cmd);
+
+void ARM11_MRS(struct ARM11MPCore* ARM11);
+
+void ARM11_MSRReg(struct ARM11MPCore* ARM11);
+void ARM11_MSRImm_Hints(struct ARM11MPCore* ARM11);
