@@ -2,7 +2,7 @@ ODIR=build/obj
 SDIR=src
 
 CC=clang
-CFLAGS=-I./src -O3 -std=c23
+CFLAGS=-I./src -O3 -std=c23 -march=native
 
 _DEPS = main.h cpu/arm11/interpreter.h bus.h patternmatch.h types.h
 DEPS = $(patsubst %,$(SDIR)/%,$(_DEPS))

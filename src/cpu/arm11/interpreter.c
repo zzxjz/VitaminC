@@ -55,7 +55,7 @@ void* ARM11_InitInstrLUT(const u16 bits)
 	CHECK(000100000000, 111110111111, ARM11_MRS) // mrs
 	CHECK(000100100000, 111110111111, ARM11_MSRReg) // msr (reg)
 	CHECK(001100100000, 111110110000, ARM11_MSRImm_Hints) // msr (imm) / hints
-	CHECK(000100100001, 111111111111, NULL) // bx
+	CHECK(000100100001, 111111111111, ARM_BX) // bx
 	CHECK(000100100010, 111111111111, NULL) // bxj
 	CHECK(000101100001, 111111111111, NULL) // clz
 	CHECK(000100100011, 111111111111, NULL) // blx (reg)
@@ -117,6 +117,7 @@ char* ARM11_Init()
 		ARM11[i].NextStep = ARM11_StartFetch;
 		ARM11_Branch(&ARM11[i], 0, false);
 		ARM11[i].Mode = MODE_SVC;
+		ARM11->SPSR = &ARM11->SVC.SPSR;
 		ARM11[i].CP15.Control = 0x00054078;
 		ARM11[i].CP15.AuxControl = 0x0F;
 		ARM11[i].CP15.DCacheLockdown = 0xFFFFFFF0;
@@ -127,6 +128,8 @@ char* ARM11_Init()
 
 void ARM11_UpdateMode(struct ARM11MPCore* ARM11, u8 newmode)
 {
+	printf("%X, %X\n", ARM11->Mode, newmode);
+
 	if (ARM11->Mode == newmode) return;
 
 	switch (ARM11->Mode)
@@ -161,7 +164,7 @@ void ARM11_UpdateMode(struct ARM11MPCore* ARM11, u8 newmode)
 		break;
 	}
 
-	switch (ARM11->Mode)
+	switch (newmode)
 	{
 	case 0x10: // USR
 	case 0x1F: // SYS
@@ -206,18 +209,20 @@ void ARM11_MRS(struct ARM11MPCore* ARM11)
 	const bool r = curinstr & (1<<22);
 	const u8 rd = (curinstr >> 12) & 0xF;
 
-	if (r) printf("SPSR READ!!!\n");
-	else ARM11_WriteReg(ARM11, rd, ARM11->CPSR, false);
+	u32 psr;
+	if (r) psr = ARM11->SPSR ? *ARM11->SPSR : 0;
+	else psr = ARM11->CPSR;
+	ARM11_WriteReg(ARM11, rd, psr, false);
 }
 
 void ARM11_MSR(struct ARM11MPCore* ARM11, u32 val)
 {
 	const u32 curinstr = ARM11->Instr.Data;
 	const bool r = curinstr & (1<<22);
-	const u8 c = curinstr & (1<<16);
-	const u8 x = curinstr & (1<<17);
-	const u8 s = curinstr & (1<<18);
-	const u8 f = curinstr & (1<<19);
+	const bool c = curinstr & (1<<16);
+	const bool x = curinstr & (1<<17);
+	const bool s = curinstr & (1<<18);
+	const bool f = curinstr & (1<<19);
 
 	u32 writemask;
 	if (ARM11->Mode == MODE_USR)
@@ -234,13 +239,21 @@ void ARM11_MSR(struct ARM11MPCore* ARM11, u32 val)
 	if (!s) writemask &= 0xFF00FFFF;
 	if (!f) writemask &= 0x00FFFFFF;
 
+	printf("%08X\n", writemask);
 	val &= writemask;
 
-	if (r) *ARM11->SPSR = val;
+	if (r)
+	{
+		if (!ARM11->SPSR) return;
+		*ARM11->SPSR &= ~writemask;
+		*ARM11->SPSR |= val;
+	}
 	else
 	{
 		if (val & 0x01000020) printf("SETTING T OR J BIT!!! PANIC!!!!!!\n");
 
+		val |= ARM11->CPSR & ~writemask;
+		ARM11_UpdateMode(ARM11, val&0x1F);
 		ARM11->CPSR = val;
 	}
 }
@@ -256,12 +269,36 @@ void ARM11_MSRReg(struct ARM11MPCore* ARM11)
 void ARM11_MSRImm_Hints(struct ARM11MPCore* ARM11)
 {
 	const u32 curinstr = ARM11->Instr.Data;
-	const u8 imm = curinstr & 0xFF;
-	const u8 rorimm = ((curinstr >> 8) & 0xF) * 2;
+	const bool op = curinstr & (1<<22);
+	const u8 op1 = (curinstr >> 16) & 0xF;
+	const u8 op2 = curinstr & 0xFF;
 
-	const u32 val = ARM11_ROR32(imm, rorimm);
-
-	ARM11_MSR(ARM11, val);
+	if (op1) // msr immediate
+	{
+		const u8 rorimm = ((curinstr >> 8) & 0xF) * 2;
+		const u32 val = ARM11_ROR32(op2, rorimm);
+		ARM11_MSR(ARM11, val);
+	}
+	else if (!op) // hints
+	{
+		switch(op2)
+		{
+		case 0x00: // nop
+			return;
+		case 0x01: // yield
+			printf("UNIMPLEMENTED HINT: YIELD!!!\n"); return;
+		case 0x02: // wfe (wait for event)
+			printf("UNIMPLEMENTED HINT: WFE\n"); return;
+		case 0x03: // wfi (wait for interrupt)
+			printf("UNIMPLEMENTED HINT: WFI\n"); return;
+		case 0x04: // sev (send event)
+			printf("UNIMPLEMENTED HINT: SEV\n"); return;
+		case 0x14: // csdb (consumption of speculative data barrier?????????)
+			printf("UNIMPLEMENTED HINT: CSDB\n"); return;
+		default:
+			printf("INVALID HINT %02X\n", op2); return;
+		}
+	}
 }
 
 void ARM11_Branch(struct ARM11MPCore* ARM11, const u32 addr, const bool restore)
@@ -354,5 +391,6 @@ void ARM11_RunInterpreter(struct ARM11MPCore* ARM11, u64 target)
 		ARM11_StartFetch(ARM11);
 		ARM11_StartExec(ARM11);
 		ARM11->Timestamp++;
+		printf("times: %li %li\n", ARM11->Timestamp, target);
 	}
 }

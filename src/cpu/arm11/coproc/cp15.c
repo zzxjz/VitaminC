@@ -1,6 +1,193 @@
 #include <stdio.h>
 #include "../interpreter.h"
 #include "../../../types.h"
+#include "../../../bus.h"
+
+bool ARM11_CP15_PageTable_PrivilegeLookup(struct ARM11MPCore* ARM11, bool read, u8 domain, u8 ap)
+{
+    switch(domain)
+    {
+    case 0b00: // domain fault
+        return false;
+    case 0b01:
+    {
+        switch(ap)
+        {
+        case 0b000: // P: n/a - U: n/a
+            return false;
+
+        case 0b001: // P: r/w - U: n/a
+            return (ARM11->Mode != 0x10);
+
+        case 0b010: // P: r/w - U: r/o
+            if (read) return true;
+            else return (ARM11->Mode != 0x10);
+
+        case 0b011: // P: r/w - U: r/w
+            return true;
+
+        case 0b100: // reserved
+            printf("INVALID ACCESS PERMISSION 0b100!!!\n");
+            return false;
+
+        case 0b101: // P: r/o - U: r/o
+            if (read) return (ARM11->Mode != 0x10);
+            else return false;
+
+        case 0b110: // P: r/o - U: n/a
+            if (read) return true;
+            else return false;
+
+        case 0b111: // reserved
+            printf("INVALID ACCESS PERMISSION 0b111!!!\n");
+            return false;
+        default: __builtin_unreachable();
+        }
+    }
+    case 0b10: // reserved
+        printf("INVALID DOMAIN PERM 0b10!!!\n");
+        return false; // checkme
+    case 0b11: // manager
+        return true;
+    default: __builtin_unreachable();
+    }
+}
+
+bool ARM11_CP15_PageTable_Lookup(struct ARM11MPCore* ARM11, u32* addr, const struct TLBAccessType accesstype)
+{
+    if (!ARM11->CP15.MMU) return true;
+
+    const u8 n = ARM11->CP15.TransTblControl & 0x7;
+    u32 transmask = 0x3FFF >> n;
+    u32 transmask2;
+
+    u32 transtable;
+    if (n && (*addr & ~transmask))
+    {
+        transtable = ARM11->CP15.TransTblBaseR1;
+        transmask = 0x3FFF;
+        transmask2 = 0xFFF00000;
+    }
+    else
+    {
+        transtable = ARM11->CP15.TransTblBaseR0;
+        transmask2 = (0xFFF00000 >> n) & 0xFFF00000;
+    }
+    const u32 lookupaddr = (transtable & ~transmask) | ((*addr & transmask2) >> 18);
+    union PageTableEntry entry;
+    entry.Data = Bus11_PageTableLoad32(ARM11, lookupaddr);
+    
+    switch (entry.Section.Type)
+    {
+    case 0b00: // translation fault
+        printf("TRANSLATION FAULT %08X\n", *addr);
+        return false;
+    case 0b01: // second table!!! WOOOOOOO!!!!!
+    {
+        const u32 lookupaddr2 = (entry.Coarse.LookupAddr << 10 | ((*addr & 0x000FF000) >> 10));
+        union PageTableEntry entry2;
+        entry2.Data = Bus11_PageTableLoad32(ARM11, lookupaddr2);
+        
+        const bool xp = ARM11->CP15.ExtPageTable;
+
+        if (!xp)
+        {
+            printf("WAIT HOLD ON I DIDN'T FINISH THOSE!!!\n");
+            switch(entry2.L2YSubpage.LargePage.Type)
+            {
+            case 0b00: // trans fault
+                printf("TRANSLATION FAULT %08X\n", *addr);
+                return false;
+            case 0b01: // large page
+            {
+                *addr = (entry2.L2NSubpage.LargePage.BaseAddr << 16) | (*addr & 0x0000FFFF);
+                return true;
+            }
+            case 0b10: // small page
+            {
+                *addr = (entry2.L2NSubpage.ExtSmallPage.BaseAddr << 12) | (*addr & 0x00000FFF);
+                return true;
+            }
+            case 0b11: // ext small page
+            {
+                *addr = (entry2.L2NSubpage.ExtSmallPage.BaseAddr << 12) | (*addr & 0x00000FFF);
+                return true;
+            }
+            default: __builtin_unreachable();
+            }
+        }
+        else
+        {
+            switch(entry2.L2NSubpage.LargePage.Type)
+            {
+            case 0b00: // trans fault
+                printf("TRANSLATION FAULT %08X\n", *addr);
+                return false;
+            case 0b01: // large page
+            {
+                if (entry2.L2NSubpage.LargePage.XN && accesstype.Instr) return false;
+
+                const u8 domain = (ARM11->CP15.DomainAccessControl >> (entry.Coarse.Domain*2)) & 0x3;
+                const u8 ap = (entry2.L2NSubpage.LargePage.APX << 2) | entry2.L2NSubpage.LargePage.AP;
+
+                if (!ARM11_CP15_PageTable_PrivilegeLookup(ARM11, accesstype.Read, domain, ap)) return false;
+
+                *addr = (entry2.L2NSubpage.LargePage.BaseAddr << 16) | (*addr & 0x0000FFFF);
+                return true;
+            }
+            case 0b10: // ext small page
+            case 0b11:
+            {
+                if (entry2.L2NSubpage.ExtSmallPage.XN && accesstype.Instr) return false;
+
+                const u8 domain = (ARM11->CP15.DomainAccessControl >> (entry.Coarse.Domain*2)) & 0x3;
+                const u8 ap = (entry2.L2NSubpage.ExtSmallPage.APX << 2) | entry2.L2NSubpage.ExtSmallPage.AP;
+
+                if (!ARM11_CP15_PageTable_PrivilegeLookup(ARM11, accesstype.Read, domain, ap)) return false;
+
+                *addr = (entry2.L2NSubpage.ExtSmallPage.BaseAddr << 12) | (*addr & 0x00000FFF);
+                return true;
+            }
+            default: __builtin_unreachable();
+            }
+        }
+    }
+    case 0b10: // section/supersection
+    {
+        const bool xp = ARM11->CP15.ExtPageTable;
+
+        if (entry.Section.Supersection && xp)
+        {
+            if (entry.Supersection.XN && accesstype.Instr) return false; // checkme: is this higher priority than a domain fault?
+
+            const u8 domain = ARM11->CP15.DomainAccessControl & 0x3; // always domain 0
+            const u8 ap = (entry.Supersection.APX << 2) | entry.Supersection.AP;
+
+            if (!ARM11_CP15_PageTable_PrivilegeLookup(ARM11, accesstype.Read, domain, ap)) return false;
+
+            *addr = (entry.Supersection.BaseAddr << 24) | (*addr & 0x00FFFFFF);
+            return true;
+        }
+        else
+        {
+            if (xp && entry.Section.XN && accesstype.Instr) return false; // checkme: is this higher priority than a domain fault?
+
+            const u8 domain = (ARM11->CP15.DomainAccessControl >> (entry.Section.Domain*2)) & 0x3;
+            u8 ap = entry.Section.AP;
+            if (xp) ap |= entry.Section.APX << 2;
+
+            if (!ARM11_CP15_PageTable_PrivilegeLookup(ARM11, accesstype.Read, domain, ap)) return false;
+
+            *addr = (entry.Section.BaseAddr << 20) | (*addr & 0x000FFFFF);
+            return true; 
+        }
+    }
+    case 0b11: // reserved?
+        printf("RESERVED PAGE TABLE MODE????\n");
+        return false; // checkme?
+    default: __builtin_unreachable();
+    }
+}
 
 void ARM11_CP15_Store_Single(struct ARM11MPCore* ARM11, u16 cmd, u32 val)
 {

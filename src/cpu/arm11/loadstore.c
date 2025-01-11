@@ -74,20 +74,13 @@ void ARM11_LDR_STR(struct ARM11MPCore* ARM11)
 
     if (b)
     {
-        if (l) // ldrb
-        {
-            ARM11_WriteReg(ARM11, rd, Bus11_Load8(addr), false);
-        }
-        else printf("WARNING: STRB UNIMPLEMENTED\n"); // strb
+        if (l) ARM11_WriteReg(ARM11, rd, Bus11_Load8(addr), false); // ldrb
+        else Bus11_Store8(addr, ARM11_GetReg(ARM11, rd)); // strb
     }
     else
     {
-        if (l) // ldr
-        {
-            printf("LOAD32: %08X\n", addr);
-            ARM11_WriteReg(ARM11, rd, Bus11_Load32(addr), false);
-        }
-        else printf("WARNING: STR UNIMPLEMENTED\n"); // str
+        if (l) ARM11_WriteReg(ARM11, rd, Bus11_Load32(addr), false); // ldr
+        else Bus11_Store32(addr, ARM11_GetReg(ARM11, rd)); // str
     }
 
     if (w || !p)
@@ -120,21 +113,22 @@ void ARM11_LDM_STM(struct ARM11MPCore* ARM11)
 
     if (l && s && ! r15) printf("WARNING: USER MODE LDM UNIMPLEMENTED\n"); // todo: user mode regs
 
-    for (int i = 0; i < rlist; i++)
+    while (rlist)
     {
+        printf("%04X\n", rlist);
         int reg = __builtin_ctz(rlist);
         rlist &= ~1<<reg;
 
         if (p^u) base += 4;
 
         if (l) ARM11_WriteReg(ARM11, reg, Bus11_Load32(base), s);
-        else printf("WARNING: STM UNIMPLEMENTED\n"); // todo: stores
+        else Bus11_Store32(base, ARM11_GetReg(ARM11, reg)); // todo: stores
 
         if (!(p^u)) base += 4;
     }
 
     if (w)
     {
-        ARM11_WriteReg(ARM11, rn, wbbase, false);
+        ARM11_WriteReg(ARM11, (curinstr >> 16) & 0xF, wbbase, false);
     }
 }

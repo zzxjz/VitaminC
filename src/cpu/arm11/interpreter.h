@@ -39,6 +39,136 @@ struct alignas(u64) Instruction
 	bool PrefetchAbort;
 };
 
+union PageTableEntry
+{
+	u32 Data;
+
+	struct
+	{
+		u32 Type : 2;
+		u32 : 3;
+		u32 Domain : 4;
+		bool ImplementationDefined : 1;
+		u32 LookupAddr : 22;
+	} Coarse;
+
+	struct
+	{
+		u32 Type : 2;
+		bool B : 1;
+		bool C : 1;
+		bool XN : 1;
+		u32 Domain : 4;
+		bool ImplementationDefined : 1;
+		u32 AP : 2;
+		u32 TEX : 3;
+		bool APX : 1;
+		bool S : 1;
+		bool NG : 1;
+		bool Supersection : 1;
+		bool : 1;
+		u32 BaseAddr : 12;
+	} Section;
+
+	struct
+	{
+		u32 Type : 2;
+		bool B : 1;
+		bool C : 1;
+		bool XN : 1;
+		u32 ExtAddr2 : 4;
+		bool ImplementationDefined : 1;
+		u32 AP : 2;
+		u32 TEX : 3;
+		bool APX : 1;
+		bool S : 1;
+		bool NG : 1;
+		bool Supersection : 1;
+		bool : 1;
+		u32 ExtAddr1 : 4;
+		u32 BaseAddr : 8;
+	} Supersection;
+
+	union
+	{
+		struct
+		{
+			u32 Type : 2;
+			bool B : 1;
+			bool C : 1;
+			u32 AP0 : 2;
+			u32 AP1 : 2;
+			u32 AP2 : 2;
+			u32 AP3 : 2;
+			u32 TEX : 3;
+			bool : 1;
+			u32 BaseAddr : 16;
+		} LargePage;
+
+		struct
+		{
+			u32 Type : 2;
+			bool B : 1;
+			bool C : 1;
+			u32 AP0 : 2;
+			u32 AP1 : 2;
+			u32 AP2 : 2;
+			u32 AP3 : 2;
+			u32 BaseAddr : 20;
+		} SmallPage;
+
+		struct
+		{
+			u32 Type : 2;
+			bool B : 1;
+			bool C : 1;
+			u32 AP : 2;
+			u32 TEX : 3;
+			u32 : 3;
+			u32 BaseAddr : 20;
+		} ExtSmallPage;
+	} L2YSubpage;
+
+	union
+	{
+		struct
+		{
+			u32 Type : 2;
+			bool B : 1;
+			bool C : 1;
+			u32 AP : 2;
+			u32 : 3;
+			bool APX : 1;
+			bool S : 1;
+			bool NG : 1;
+			u32 TEX : 3;
+			bool XN : 1;
+			u32 BaseAddr : 16;
+		} LargePage;
+
+		struct
+		{
+			bool XN : 1;
+			bool Type : 1;
+			bool B : 1;
+			bool C : 1;
+			u32 AP : 2;
+			u32 TEX : 3;
+			bool APX : 1;
+			bool S : 1;
+			bool NG : 1;
+			u32 BaseAddr : 20;
+		} ExtSmallPage;
+
+	} L2NSubpage;
+};
+
+struct TLBAccessType
+{
+	bool Read : 1;
+	bool Instr : 1;
+};
+
 struct ARM11MPCore
 {
 	// registers
@@ -315,6 +445,7 @@ void ARM11_LDR_STR(struct ARM11MPCore* ARM11);
 void ARM11_LDM_STM(struct ARM11MPCore* ARM11);
 
 void ARM11_B_BL(struct ARM11MPCore* ARM11);
+void ARM_BX(struct ARM11MPCore* ARM11);
 
 void ARM11_MCR_MRC(struct ARM11MPCore* ARM11);
 void ARM11_CP15_Store_Single(struct ARM11MPCore* ARM11, u16 cmd, u32 val);
