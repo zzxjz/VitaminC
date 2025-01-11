@@ -49,54 +49,61 @@ void Bus_Free()
 
 u32 Bus11_PageTableLoad32(const struct ARM11MPCore* ARM11, const u32 addr)
 {
-    u8* val = Bus11_GetPtrLoad(addr & ~3);
+    u8* val = Bus11_GetPtr(addr & ~3, BusAccess_32Bit);
     if (val) return (ARM11->CP15.ExceptionEndian ? __builtin_bswap32(*(u32*)val) : *(u32*)val);
     return 0;
 }
 
-u32 Bus11_Load32(const u32 addr)
+u32 Bus11_InstrLoad32(struct ARM11MPCore* ARM11, u32 addr)
 {
-    u8* val = Bus11_GetPtrLoad(addr & ~3);
+    ARM11_CP15_PageTable_Lookup(ARM11, &addr, TLB_Instr | TLB_Read);
+
+    u8* val = Bus11_GetPtr(addr & ~3, BusAccess_32Bit);
     if (val) return *(u32*)val;
     return 0;
 }
 
-u8 Bus11_Load8(const u32 addr)
+u32 Bus11_Load32(struct ARM11MPCore* ARM11, u32 addr)
 {
-    u8* val = Bus11_GetPtrLoad(addr);
+    ARM11_CP15_PageTable_Lookup(ARM11, &addr, TLB_Read);
+
+    if (addr & 0x3) printf("UNALIGNED LOAD32\n");
+
+    u8* val = Bus11_GetPtr(addr & ~3, BusAccess_32Bit);
+    if (val) return *(u32*)val;
+    return 0;
+}
+
+u8 Bus11_Load8(struct ARM11MPCore* ARM11, u32 addr)
+{
+    ARM11_CP15_PageTable_Lookup(ARM11, &addr, TLB_Read);
+
+    u8* val = Bus11_GetPtr(addr, BusAccess_8Bit);
     if (val) return *(u8*)val;
     return 0;
 }
 
-void Bus11_Store32(const u32 addr, const u32 val)
+void Bus11_Store32(struct ARM11MPCore* ARM11, u32 addr, const u32 val)
 {
-    u32* ptr = (u32*)Bus11_GetPtrLoad(addr & ~3);
+    ARM11_CP15_PageTable_Lookup(ARM11, &addr, 0);
+
+    if (addr & 0x3) printf("UNALIGNED STORE32\n");
+
+    u32* ptr = (u32*)Bus11_GetPtr(addr & ~3, BusAccess_Store | BusAccess_32Bit);
     if (ptr) *ptr = val;
 }
 
-void Bus11_Store8(const u32 addr, const u8 val)
+void Bus11_Store8(struct ARM11MPCore* ARM11, u32 addr, const u8 val)
 {
-    u8* ptr = Bus11_GetPtrLoad(addr);
+    ARM11_CP15_PageTable_Lookup(ARM11, &addr, 0);
+
+    u8* ptr = Bus11_GetPtr(addr, BusAccess_Store | BusAccess_8Bit);
     if (ptr) *ptr = val;
 }
 
-u8* Bus11_GetPtrWrite(const u32 addr)
+u8* Bus11_GetPtr(const u32 addr, const u8 accesstype)
 {
-    if ((addr & 0xFFF00000) == 0x1FF00000)
-        return &WRAM[addr & (WRAM_Size-1)];
-    
-    if ((addr & 0xF8000000) == 0x20000000)
-        return &FCRAM[0][addr & (FCRAM_Size-1)];
-    if ((addr & 0xF8000000) == 0x28000000)
-        return &FCRAM[1][addr & (FCRAM_Size-1)];
-
-    printf("UNK STORE: %08X\n", addr);
-    return NULL;
-}
-
-u8* Bus11_GetPtrLoad(const u32 addr)
-{
-    if ((addr < 0x20000) || (addr >= 0xFFFF0000))
+    if (!(accesstype & BusAccess_Store) && ((addr < 0x20000) || (addr >= 0xFFFF0000)))
         return &Bios11[addr & (Bios11_Size-1)];
 
     if ((addr & 0xFFF00000) == 0x1FF00000)
@@ -107,6 +114,6 @@ u8* Bus11_GetPtrLoad(const u32 addr)
     if ((addr & 0xF8000000) == 0x28000000)
         return &FCRAM[1][addr & (FCRAM_Size-1)];
 
-    printf("UNK LOAD: %08X\n", addr);
+    printf("UNK ACCESS: %08X %X\n", addr, accesstype);
     return NULL;
 }

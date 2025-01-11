@@ -33,7 +33,7 @@ inline u32 ARM11_ROR32(u32 val, u8 ror)
 
 #define CHECK(x, y, z) if (PatternMatch((struct Pattern) {0b##x, 0b##y}, bits)) { return z; } else
 
-void* ARM11_InitInstrLUT(const u16 bits)
+void* ARM11_InitARMInstrLUT(const u16 bits)
 {
 	// media instruction space
 	CHECK(011000000001, 111110000001, NULL) // parallel add/sub
@@ -55,10 +55,9 @@ void* ARM11_InitInstrLUT(const u16 bits)
 	CHECK(000100000000, 111110111111, ARM11_MRS) // mrs
 	CHECK(000100100000, 111110111111, ARM11_MSRReg) // msr (reg)
 	CHECK(001100100000, 111110110000, ARM11_MSRImm_Hints) // msr (imm) / hints
-	CHECK(000100100001, 111111111111, ARM_BX) // bx
+	CHECK(000100100001, 111111111101, ARM_BX_BLXReg) // bx/blx (reg)
 	CHECK(000100100010, 111111111111, NULL) // bxj
 	CHECK(000101100001, 111111111111, NULL) // clz
-	CHECK(000100100011, 111111111111, NULL) // blx (reg)
 	CHECK(000100000100, 111110011111, NULL) // q(d)add/sub
 	CHECK(000100100111, 111111111111, NULL) // bkpt
 	CHECK(000100001000, 111110011001, NULL) // signed multiplies
@@ -89,6 +88,27 @@ void* ARM11_InitInstrLUT(const u16 bits)
 	return NULL; // undef instr (raise exception)
 }
 
+void* ARM11_InitTHUMBInstrLUT(const u8 bits)
+{
+	CHECK(000110, 111110, THUMB11_ADD_SUB_Reg_Imm3); // add/sub reg/imm
+	CHECK(000000, 111000, THUMB11_ShiftImm); // shift by imm
+	CHECK(001000, 111000, THUMB11_ADD_SUB_CMP_MOV_Imm8); // add/sub/cmp/mov imm
+	CHECK(010000, 111111, THUMB11_ALU); // data proc reg
+	CHECK(010001, 111111, NULL); // spec data proc/b(l)x
+	CHECK(010010, 111110, NULL); // ldr pcrel
+	CHECK(010100, 111100, NULL); // ldr/str reg
+	CHECK(011000, 111000, NULL); // (ld/st)r(b) imm
+	CHECK(100000, 111100, NULL); // ldrh/strh imm
+	CHECK(100100, 111100, NULL); // ldr/str sprel
+	CHECK(101100, 111100, NULL); // misc
+	CHECK(110000, 111100, NULL); // ldm/stm
+	CHECK(110100, 111100, NULL); // cond b/udf/svc
+	CHECK(111000, 111110, NULL); // b
+	CHECK(111100, 111110, NULL); // blx prefix
+	CHECK(111010, 111010, NULL); // bl suffix
+	return NULL; // udf
+}
+
 void* DecodeUncondInstr(const u32 bits)
 {
 	CHECK(0001000000000000000000000000, 1111111100010000000000100000, NULL) // cps
@@ -106,6 +126,7 @@ void* DecodeUncondInstr(const u32 bits)
 #undef CHECK
 
 alignas(64) void (*ARM11_InstrLUT[0x1000]) (struct ARM11MPCore* ARM11);
+alignas(64) void (*THUMB11_InstrLUT[0x40]) (struct ARM11MPCore* ARM11);
 
 struct ARM11MPCore ARM11[4];
 
@@ -337,7 +358,7 @@ inline void ARM11_WriteReg(struct ARM11MPCore* ARM11, const int reg, const u32 v
 
 u32 ARM11_CodeFetch(struct ARM11MPCore* ARM11)
 {
-	return Bus11_Load32(ARM11->PC);
+	return Bus11_InstrLoad32(ARM11, ARM11->PC);
 }
 
 void ARM11_StartFetch(struct ARM11MPCore* ARM11)

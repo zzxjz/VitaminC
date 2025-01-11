@@ -163,10 +163,10 @@ union PageTableEntry
 	} L2NSubpage;
 };
 
-struct TLBAccessType
+enum
 {
-	bool Read : 1;
-	bool Instr : 1;
+	TLB_Read  = 0b01,
+	TLB_Instr = 0b10,
 };
 
 struct ARM11MPCore
@@ -424,10 +424,11 @@ struct ARM11MPCore
 };
 
 extern void (*ARM11_InstrLUT[0x1000]) (struct ARM11MPCore* ARM11);
+extern void (*THUMB11_InstrLUT[0x40]) (struct ARM11MPCore* ARM11);
 
 extern struct ARM11MPCore ARM11[4];
 
-void* ARM11_InitInstrLUT(const u16 bits);
+void* ARM11_InitARMInstrLUT(const u16 bits);
 
 u32 ARM11_ROR32(u32 val, u8 ror);
 
@@ -439,13 +440,19 @@ void ARM11_StartFetch(struct ARM11MPCore* ARM11);
 void ARM11_StartExec(struct ARM11MPCore* ARM11);
 void ARM11_RunInterpreter(struct ARM11MPCore* ARM11, u64 target);
 
+bool ARM11_CP15_PageTable_Lookup(struct ARM11MPCore* ARM11, u32* addr, const u8 accesstype);
+
 void ARM11_ALU(struct ARM11MPCore* ARM11);
+void THUMB11_ShiftImm(struct ARM11MPCore* ARM11);
+void THUMB11_ADD_SUB_Reg_Imm3(struct ARM11MPCore* ARM11);
+void THUMB11_ADD_SUB_CMP_MOV_Imm8(struct ARM11MPCore* ARM11);
+void THUMB11_ALU(struct ARM11MPCore* ARM11);
 
 void ARM11_LDR_STR(struct ARM11MPCore* ARM11);
 void ARM11_LDM_STM(struct ARM11MPCore* ARM11);
 
 void ARM11_B_BL(struct ARM11MPCore* ARM11);
-void ARM_BX(struct ARM11MPCore* ARM11);
+void ARM_BX_BLXReg(struct ARM11MPCore* ARM11);
 
 void ARM11_MCR_MRC(struct ARM11MPCore* ARM11);
 void ARM11_CP15_Store_Single(struct ARM11MPCore* ARM11, u16 cmd, u32 val);

@@ -53,7 +53,7 @@ bool ARM11_CP15_PageTable_PrivilegeLookup(struct ARM11MPCore* ARM11, bool read, 
     }
 }
 
-bool ARM11_CP15_PageTable_Lookup(struct ARM11MPCore* ARM11, u32* addr, const struct TLBAccessType accesstype)
+bool ARM11_CP15_PageTable_Lookup(struct ARM11MPCore* ARM11, u32* addr, const u8 accesstype)
 {
     if (!ARM11->CP15.MMU) return true;
 
@@ -125,12 +125,12 @@ bool ARM11_CP15_PageTable_Lookup(struct ARM11MPCore* ARM11, u32* addr, const str
                 return false;
             case 0b01: // large page
             {
-                if (entry2.L2NSubpage.LargePage.XN && accesstype.Instr) return false;
+                if (entry2.L2NSubpage.LargePage.XN && accesstype & TLB_Instr) return false;
 
                 const u8 domain = (ARM11->CP15.DomainAccessControl >> (entry.Coarse.Domain*2)) & 0x3;
                 const u8 ap = (entry2.L2NSubpage.LargePage.APX << 2) | entry2.L2NSubpage.LargePage.AP;
 
-                if (!ARM11_CP15_PageTable_PrivilegeLookup(ARM11, accesstype.Read, domain, ap)) return false;
+                if (!ARM11_CP15_PageTable_PrivilegeLookup(ARM11, accesstype & TLB_Read, domain, ap)) return false;
 
                 *addr = (entry2.L2NSubpage.LargePage.BaseAddr << 16) | (*addr & 0x0000FFFF);
                 return true;
@@ -138,12 +138,12 @@ bool ARM11_CP15_PageTable_Lookup(struct ARM11MPCore* ARM11, u32* addr, const str
             case 0b10: // ext small page
             case 0b11:
             {
-                if (entry2.L2NSubpage.ExtSmallPage.XN && accesstype.Instr) return false;
+                if (entry2.L2NSubpage.ExtSmallPage.XN && accesstype & TLB_Instr) return false;
 
                 const u8 domain = (ARM11->CP15.DomainAccessControl >> (entry.Coarse.Domain*2)) & 0x3;
                 const u8 ap = (entry2.L2NSubpage.ExtSmallPage.APX << 2) | entry2.L2NSubpage.ExtSmallPage.AP;
 
-                if (!ARM11_CP15_PageTable_PrivilegeLookup(ARM11, accesstype.Read, domain, ap)) return false;
+                if (!ARM11_CP15_PageTable_PrivilegeLookup(ARM11, accesstype & TLB_Read, domain, ap)) return false;
 
                 *addr = (entry2.L2NSubpage.ExtSmallPage.BaseAddr << 12) | (*addr & 0x00000FFF);
                 return true;
@@ -158,25 +158,25 @@ bool ARM11_CP15_PageTable_Lookup(struct ARM11MPCore* ARM11, u32* addr, const str
 
         if (entry.Section.Supersection && xp)
         {
-            if (entry.Supersection.XN && accesstype.Instr) return false; // checkme: is this higher priority than a domain fault?
+            if (entry.Supersection.XN && accesstype & TLB_Instr) return false; // checkme: is this higher priority than a domain fault?
 
             const u8 domain = ARM11->CP15.DomainAccessControl & 0x3; // always domain 0
             const u8 ap = (entry.Supersection.APX << 2) | entry.Supersection.AP;
 
-            if (!ARM11_CP15_PageTable_PrivilegeLookup(ARM11, accesstype.Read, domain, ap)) return false;
+            if (!ARM11_CP15_PageTable_PrivilegeLookup(ARM11, accesstype & TLB_Read, domain, ap)) return false;
 
             *addr = (entry.Supersection.BaseAddr << 24) | (*addr & 0x00FFFFFF);
             return true;
         }
         else
         {
-            if (xp && entry.Section.XN && accesstype.Instr) return false; // checkme: is this higher priority than a domain fault?
+            if (xp && entry.Section.XN && accesstype & TLB_Instr) return false; // checkme: is this higher priority than a domain fault?
 
             const u8 domain = (ARM11->CP15.DomainAccessControl >> (entry.Section.Domain*2)) & 0x3;
             u8 ap = entry.Section.AP;
             if (xp) ap |= entry.Section.APX << 2;
 
-            if (!ARM11_CP15_PageTable_PrivilegeLookup(ARM11, accesstype.Read, domain, ap)) return false;
+            if (!ARM11_CP15_PageTable_PrivilegeLookup(ARM11, accesstype & TLB_Read, domain, ap)) return false;
 
             *addr = (entry.Section.BaseAddr << 20) | (*addr & 0x000FFFFF);
             return true; 

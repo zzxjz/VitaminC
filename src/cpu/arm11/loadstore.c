@@ -74,13 +74,13 @@ void ARM11_LDR_STR(struct ARM11MPCore* ARM11)
 
     if (b)
     {
-        if (l) ARM11_WriteReg(ARM11, rd, Bus11_Load8(addr), false); // ldrb
-        else Bus11_Store8(addr, ARM11_GetReg(ARM11, rd)); // strb
+        if (l) ARM11_WriteReg(ARM11, rd, Bus11_Load8(ARM11, addr), false); // ldrb
+        else Bus11_Store8(ARM11, addr, ARM11_GetReg(ARM11, rd)); // strb
     }
     else
     {
-        if (l) ARM11_WriteReg(ARM11, rd, Bus11_Load32(addr), false); // ldr
-        else Bus11_Store32(addr, ARM11_GetReg(ARM11, rd)); // str
+        if (l) ARM11_WriteReg(ARM11, rd, Bus11_Load32(ARM11, addr), false); // ldr
+        else Bus11_Store32(ARM11, addr, ARM11_GetReg(ARM11, rd)); // str
     }
 
     if (w || !p)
@@ -121,8 +121,8 @@ void ARM11_LDM_STM(struct ARM11MPCore* ARM11)
 
         if (p^u) base += 4;
 
-        if (l) ARM11_WriteReg(ARM11, reg, Bus11_Load32(base), s);
-        else Bus11_Store32(base, ARM11_GetReg(ARM11, reg)); // todo: stores
+        if (l) ARM11_WriteReg(ARM11, reg, Bus11_Load32(ARM11, base), s);
+        else Bus11_Store32(ARM11, base, ARM11_GetReg(ARM11, reg)); // todo: stores
 
         if (!(p^u)) base += 4;
     }

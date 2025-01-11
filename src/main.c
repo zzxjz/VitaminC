@@ -5,7 +5,7 @@
 
 char* Emu_Init()
 {
-    for (u16 i = 0; i < 0x1000; i++) ARM11_InstrLUT[i] = ARM11_InitInstrLUT(i);
+    for (u16 i = 0; i < 0x1000; i++) ARM11_InstrLUT[i] = ARM11_InitARMInstrLUT(i);
     static char* error = NULL;
     if ((error = ARM11_Init())) return error;
     if ((error = Bus_Init())) return error;

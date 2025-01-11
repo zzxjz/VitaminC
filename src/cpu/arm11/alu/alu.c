@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "../../../types.h"
 #include "../interpreter.h"
 
@@ -89,36 +90,42 @@ void ARM11_SBC_RSC(struct ARM11MPCore* ARM11, const int rd, const u32 a, const u
     ARM11_WriteReg(ARM11, rd, aluout, s);
 }
 
-void ARM11_TST(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout, const bool s)
+void ARM11_TST(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout)
 {
     u32 aluout = rn & shifterout;
 
-    if (s && (rd != 15))
+    // todo: rd == 15?
+    // ARM7TDMI & ARM946E-S have unique behavior for this edgecase, what about the arm 11?
+
+    if (rd != 15)
     {
         ARM11->Negative = aluout >> 31;
         ARM11->Zero = !aluout;
     }
 }
 
-void ARM11_TEQ(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout, const bool s)
+void ARM11_TEQ(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout)
 {
     u32 aluout = rn ^ shifterout;
 
-    if (s && (rd != 15))
+    // todo: rd == 15?
+    // ARM7TDMI & ARM946E-S have unique behavior for this edgecase, what about the arm 11?
+
+    if (rd != 15)
     {
         ARM11->Negative = aluout >> 31;
         ARM11->Zero = !aluout;
     }
 }
 
-void ARM11_CMP(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout, const bool s)
+void ARM11_CMP(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout)
 {
     u32 aluout = rn - shifterout;
 
     // todo: rd == 15?
     // ARM7TDMI & ARM946E-S have unique behavior for this edgecase, what about the arm 11?
 
-    if (s)
+    if (rd != 15)
     {
         ARM11->Carry = rn >= shifterout;
         ARM11->Negative = aluout >> 31;
@@ -127,14 +134,14 @@ void ARM11_CMP(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 
     }
 }
 
-void ARM11_CMN(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout, const bool s)
+void ARM11_CMN(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout)
 {
     u64 aluout = rn + shifterout;
 
     // todo: rd == 15?
     // ARM7TDMI & ARM946E-S have unique behavior for this edgecase, what about the arm 11?
 
-    if (s)
+    if (rd != 15)
     {
         ARM11->Carry = aluout >> 32;
         aluout &= 0xFFFFFFFF;
@@ -157,7 +164,7 @@ void ARM11_ORR(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 
     ARM11_WriteReg(ARM11, rd, aluout, s);
 }
 
-void ARM11_MOV(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout, const bool s)
+void ARM11_MOV(struct ARM11MPCore* ARM11, const int rd, const u32 shifterout, const bool s)
 {
     u32 aluout = shifterout;
 
@@ -183,7 +190,7 @@ void ARM11_BIC(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 
     ARM11_WriteReg(ARM11, rd, aluout, s);
 }
 
-void ARM11_MVN(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout, const bool s)
+void ARM11_MVN(struct ARM11MPCore* ARM11, const int rd, const u32 shifterout, const bool s)
 {
     u32 aluout = ~shifterout;
 
@@ -337,13 +344,145 @@ void ARM11_ALU(struct ARM11MPCore* ARM11)
     case 5:  ARM11_ADC(ARM11, rd, rn, shifterout, s); break;
     case 6:  ARM11_SBC_RSC(ARM11, rd, rn, shifterout, s); break;
     case 7:  ARM11_SBC_RSC(ARM11, rd, shifterout, rn, s); break;
-    case 8:  ARM11_TST(ARM11, rd, rn, shifterout, s); break;
-    case 9:  ARM11_TEQ(ARM11, rd, rn, shifterout, s); break;
-    case 10: ARM11_CMP(ARM11, rd, rn, shifterout, s); break;
-    case 11: ARM11_CMN(ARM11, rd, rn, shifterout, s); break;
+    case 8:  ARM11_TST(ARM11, rd, rn, shifterout); break;
+    case 9:  ARM11_TEQ(ARM11, rd, rn, shifterout); break;
+    case 10: ARM11_CMP(ARM11, rd, rn, shifterout); break;
+    case 11: ARM11_CMN(ARM11, rd, rn, shifterout); break;
     case 12: ARM11_ORR(ARM11, rd, rn, shifterout, s); break;
-    case 13: ARM11_MOV(ARM11, rd, rn, shifterout, s); break;
+    case 13: ARM11_MOV(ARM11, rd, shifterout, s); break;
     case 14: ARM11_BIC(ARM11, rd, rn, shifterout, s); break;
-    case 15: ARM11_MVN(ARM11, rd, rn, shifterout, s); break;
+    case 15: ARM11_MVN(ARM11, rd, shifterout, s); break;
+    }
+}
+
+void THUMB11_LSL(struct ARM11MPCore* ARM11, const u8 rd, const u32 rm, const u32 val)
+{
+    u64 aluout = rm;
+
+    if (val)
+    {
+        aluout <<= val;
+        ARM11->Carry = (aluout >> 32) & 0x1;
+        aluout &= 0xFFFFFFFF;
+    }
+    // aluout should always be 32 bits by this point
+    ARM11->Negative = aluout >> 31;
+    ARM11->Zero = aluout;
+    ARM11_WriteReg(ARM11, rd, aluout, false);
+}
+
+void THUMB11_LSR(struct ARM11MPCore* ARM11, const u8 rd, u32 rm, const u32 val)
+{
+    if (val)
+    {
+        ARM11->Carry = (rm >> (val-1)) & 0x1;
+        rm >>= val;
+    }
+    ARM11->Negative = false; // always cleared :(
+    ARM11->Zero = rm;
+    ARM11_WriteReg(ARM11, rd, rm, false);
+}
+
+void THUMB11_ASR(struct ARM11MPCore* ARM11, const u8 rd, u32 rm, const u32 val)
+{
+    if (val)
+    {
+        ARM11->Carry = ((s32)rm >> (val-1)) & 0x1;
+        rm = (s32)rm >> val;
+    }
+    ARM11->Negative = rm >> 31;
+    ARM11->Zero = rm;
+    ARM11_WriteReg(ARM11, rd, rm, false);
+}
+
+void THUMB11_ROR(struct ARM11MPCore* ARM11, const u8 rd, const u32 rdval, const u32 rs) // rick of rain is back!
+{
+    u64 rorout = rdval;
+    if (rs)
+    {
+        rorout = ARM11_ROR32(rorout, rs);
+        ARM11->Carry = rorout >> 31;
+        rorout &= 0xFFFFFFFF;
+    }
+
+    ARM11->Negative = rorout >> 31;
+    ARM11->Zero = rorout;
+    ARM11_WriteReg(ARM11, rd, rorout, false);
+}
+
+void THUMB11_ShiftImm(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+    const u8 opcode = ((curinstr >> 11) & 0x3);
+    const u8 rd = curinstr & 0x7;
+    const u32 rm = ARM11_GetReg(ARM11, (curinstr >> 3) & 0x7);
+    const u8 imm5 = (curinstr >> 6) & 0x1F;
+
+    switch(opcode)
+    {
+    case 0x0: THUMB11_LSL(ARM11, rd, rm, imm5); break;
+    case 0x1: THUMB11_LSR(ARM11, rd, rm, imm5 ? imm5 : 32); break;
+    case 0x2: THUMB11_ASR(ARM11, rd, rm, imm5 ? imm5 : 32); break;
+    default: __builtin_unreachable();
+    }
+}
+
+void THUMB11_ADD_SUB_Reg_Imm3(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+    const bool imm = curinstr & (1<<10);
+    const bool sub = curinstr & (1<<9);
+    const u8 bits = (curinstr >> 6) & 0x7;
+    const u32 val = imm ? bits : ARM11_GetReg(ARM11, bits);
+    const u8 rn = (curinstr >> 3) & 0x7;
+    const u8 rd = curinstr & 0x7;
+
+    if (sub) ARM11_SUB_RSB(ARM11, rd, rn, val, true);
+    else ARM11_ADD(ARM11, rd, rn, val, true);
+}
+
+void THUMB11_ADD_SUB_CMP_MOV_Imm8(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+    const u8 opcode = (curinstr >> 11) & 0x3;
+    const u8 rd = (curinstr >> 8) & 0x3;
+    const u8 rdval = ARM11_GetReg(ARM11, rd);
+    const u8 imm8 = curinstr & 0xFF;
+
+    switch(opcode)
+    {
+    case 0x0: ARM11_MOV(ARM11, rd, imm8, true);
+    case 0x1: ARM11_CMP(ARM11, rd, rdval, imm8);
+    case 0x2: ARM11_ADD(ARM11, rd, rdval, imm8, true);
+    case 0x3: ARM11_SUB_RSB(ARM11, rd, rdval, imm8, true);
+    }
+}
+
+void THUMB11_ALU(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+    const u8 opcode = (curinstr >> 6) & 0xF;
+    const u8 rd = curinstr & 0x7;
+    const u32 rm = ARM11_GetReg(ARM11, (curinstr >> 0x3) & 0x7);
+    const u32 rdval = ARM11_GetReg(ARM11, rd);
+
+    switch(opcode)
+    {
+    case 0x0: ARM11_AND(ARM11, rd, rdval, rm, true);
+    case 0x1: ARM11_EOR(ARM11, rd, rdval, rm, true);
+    case 0x2: THUMB11_LSL(ARM11, rd, rdval, rm);
+    case 0x3: THUMB11_LSR(ARM11, rd, rdval, rm);
+    case 0x4: THUMB11_ASR(ARM11, rd, rdval, rm);
+    case 0x5: ARM11_ADC(ARM11, rd, rdval, rm, true);
+    case 0x6: ARM11_SBC_RSC(ARM11, rd, rdval, rm, true);
+    case 0x7: THUMB11_ROR(ARM11, rd, rdval, rm);
+    case 0x8: ARM11_TST(ARM11, rd, rdval, rm);
+    case 0x9: ARM11_SUB_RSB(ARM11, rd, 0, rm, true); // NEG
+    case 0xA: ARM11_CMP(ARM11, rd, rdval, rm);
+    case 0xB: ARM11_CMN(ARM11, rd, rdval, rm);
+    case 0xC: ARM11_ORR(ARM11, rd, rdval, rm, true);
+    case 0xD: printf("UNIMPLEMENTED THUMB MULS!!!!"); break;
+    case 0xE: ARM11_BIC(ARM11, rd, rdval, rm, true);
+    case 0xF: ARM11_MVN(ARM11, rd, rm, true);
     }
 }
