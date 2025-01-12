@@ -1,15 +1,22 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include "cpu/arm11/interpreter.h"
-#include "types.h"
+#include "interpreter.h"
+#include "../../utils.h"
 #include "bus.h"
 
 u8* Bios11;
 const u32 Bios11_Size = 64 * 1024;
+
+// io
+u32 SCUControlReg;
+
+
 u8* WRAM;
 const u32 WRAM_Size = 1 * 1024 * 1024;
+
 u8* FCRAM[2];
 const u32 FCRAM_Size = 128 * 1024 * 1024;
+
 u8* VRAM;
 const u32 VRAM_Size = 6 * 1024 * 1024;
 
@@ -35,6 +42,8 @@ char* Bus_Init()
     FCRAM[0] = calloc(1, FCRAM_Size);
     FCRAM[1] = calloc(1, FCRAM_Size);
     VRAM = calloc(1, VRAM_Size);
+
+    SCUControlReg = 0x1E;
     return NULL;
 }
 
@@ -71,6 +80,10 @@ u32 Bus11_Load32(struct ARM11MPCore* ARM11, u32 addr)
 
     u8* val = Bus11_GetPtr(addr & ~0x3, BusAccess_32Bit);
     if (val) return *(u32*)val;
+    
+    printf("PC: %08X\n", ARM11->PC);
+    while(true)
+        ;
     return 0;
 }
 

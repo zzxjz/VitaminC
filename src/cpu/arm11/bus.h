@@ -1,9 +1,11 @@
 #pragma once
 
-#include "types.h"
-#include "cpu/arm11/interpreter.h"
+#include "../../utils.h"
+#include "interpreter.h"
 
 extern u8* Bios11;
+extern u32 SCUControlReg;
+
 extern u8* WRAM;
 extern u8* FCRAM[2];
 extern u8* VRAM;

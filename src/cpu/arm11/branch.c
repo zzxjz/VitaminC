@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include "interpreter.h"
-#include "../../types.h"
+#include "../../utils.h"
 
 void ARM11_B_BL(struct ARM11MPCore* ARM11)
 {

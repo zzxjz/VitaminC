@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "../../../types.h"
+#include "../../../utils.h"
 #include "../interpreter.h"
 
 void ARM11_AND(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout, const bool s)
@@ -516,4 +516,18 @@ void THUMB11_ADD_SP_PCRel(struct ARM11MPCore* ARM11)
     val += imm8 * 4;
 
     ARM11_WriteReg(ARM11, rd, val, false, false);
+}
+
+void THUMB11_ADD_SUB_SP(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+    s8 imm7 = curinstr & 0x7F;
+    const bool sub = curinstr & (1<<7);
+
+
+    if (sub) imm7 = -imm7;
+
+    u32 spval = ARM11_GetReg(ARM11, 13);
+    spval += imm7;
+    ARM11_WriteReg(ARM11, 13, spval, false, false);
 }

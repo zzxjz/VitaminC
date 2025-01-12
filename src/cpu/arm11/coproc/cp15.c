@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "../interpreter.h"
-#include "../../../types.h"
-#include "../../../bus.h"
+#include "../../../utils.h"
+#include "../bus.h"
 
 bool ARM11_CP15_PageTable_PrivilegeLookup(struct ARM11MPCore* ARM11, bool read, u8 domain, u8 ap)
 {

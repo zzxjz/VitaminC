@@ -1,9 +1,8 @@
 #include <string.h>
 #include <stdio.h>
 #include "interpreter.h"
-#include "../../patternmatch.h"
-#include "../../types.h"
-#include "../../bus.h"
+#include "../../utils.h"
+#include "bus.h"
 
 // stolen from melonds oops
 alignas(32) const u16 CondLookup[16] =
@@ -31,6 +30,28 @@ inline u32 ARM11_ROR32(u32 val, u8 ror)
 	return (val >> ror) | (val << (32-ror));
 }
 
+#define CHECK(x, y, z) if (PatternMatch((struct Pattern) {0b##x, 0b##y}, bits)) { z(ARM11); } else
+
+void THUMB11_DecodeMiscThumb(struct ARM11MPCore* ARM11)
+{
+	const u16 bits = (ARM11->Instr.Data >> 3) & 0x1FF;
+
+	CHECK(000000000, 111100000, THUMB11_ADD_SUB_SP) // adjust stack ptr
+	//CHECK(001000000, 111100000, NULL) // sign/zero ext
+	CHECK(010000000, 111000000, THUMB11_PUSH) // push
+	CHECK(110000000, 111000000, THUMB11_POP) // pop
+		//CHECK(011001000, 111111110, NULL) // mystery meat instruction :D
+	//CHECK(011001010, 111111110, NULL) // setend
+	//CHECK(011001100, 111111101, NULL) // cps
+		//CHECK(011001101, 111111111, NULL) // is secret :)
+		//CHECK(011001111, 111111111, NULL) // it is a mystery :ghost:
+	//CHECK(101000000, 111100000, NULL) // rev
+	//CHECK(111000000, 111000000, NULL) // bkpt
+	//NULL();
+	printf("UNIMPLEMENTED MISC THUMB INSTRUCTION\n");
+}
+
+#undef CHECK
 #define CHECK(x, y, z) if (PatternMatch((struct Pattern) {0b##x, 0b##y}, bits)) { return z; } else
 
 void* ARM11_InitARMInstrLUT(const u16 bits)
@@ -101,7 +122,7 @@ void* ARM11_InitTHUMBInstrLUT(const u8 bits)
 	CHECK(100000, 111100, THUMB11_LDRH_STRH_Imm5); // ldrh/strh imm
 	CHECK(100100, 111100, THUMB11_LDR_STR_SPRel); // ldr/str sprel
 	CHECK(101000, 111100, THUMB11_ADD_SP_PCRel); // add sp/pcrel
-	CHECK(101100, 111100, NULL); // misc
+	CHECK(101100, 111100, THUMB11_DecodeMiscThumb); // misc
 	CHECK(110000, 111100, NULL); // ldm/stm
 	CHECK(110100, 111100, THUMB11_CondB_SWI); // cond b/udf/svc
 	CHECK(111000, 111110, THUMB11_B); // b
@@ -150,8 +171,6 @@ char* ARM11_Init()
 
 void ARM11_UpdateMode(struct ARM11MPCore* ARM11, u8 oldmode, u8 newmode)
 {
-	printf("UPDATE MODE: %X, %X\n", oldmode, newmode);
-
 	if (oldmode == newmode) return;
 
 	switch (oldmode)
@@ -261,7 +280,6 @@ void ARM11_MSR(struct ARM11MPCore* ARM11, u32 val)
 	if (!s) writemask &= 0xFF00FFFF;
 	if (!f) writemask &= 0x00FFFFFF;
 
-	printf("%08X\n", writemask);
 	val &= writemask;
 
 	if (r)
@@ -275,7 +293,7 @@ void ARM11_MSR(struct ARM11MPCore* ARM11, u32 val)
 		if (val & 0x01000020) printf("MSR SETTING T OR J BIT!!! PANIC!!!!!!\n");
 
 		val |= ARM11->CPSR & ~writemask;
-		ARM11_UpdateMode(ARM11, ARM11->CPSR, val&0x1F);
+		ARM11_UpdateMode(ARM11, ARM11->Mode, val&0x1F);
 		ARM11->CPSR = val;
 	}
 }
@@ -330,12 +348,12 @@ u32 ARM11_CodeFetch(struct ARM11MPCore* ARM11)
 
 void ARM11_Branch(struct ARM11MPCore* ARM11, u32 addr, const bool restore)
 {
-	printf("Jumping to %08X\n", addr);
+	//printf("Jumping to %08X\n", addr);
 
 	if (restore)
 	{
 		const u32 spsr = *ARM11->SPSR;
-		ARM11_UpdateMode(ARM11, ARM11->CPSR, spsr & 0x1F);
+		ARM11_UpdateMode(ARM11, ARM11->Mode, spsr & 0x1F);
 		ARM11->CPSR = spsr;
 
 		addr &= ~0x1;
@@ -416,8 +434,8 @@ void ARM11_StartExec(struct ARM11MPCore* ARM11)
 			while (true)
 				;
 		}
-		for (int i = 0; i < 16; i++) printf("%i, %08X ", i, ARM11->R[i]);
-		printf("\n");
+		//for (int i = 0; i < 16; i++) printf("%i, %08X ", i, ARM11->R[i]);
+		//printf("\n");
 	}
 	else if (condcode == COND_NV) // do special handling for unconditional instructions
 	{
@@ -430,7 +448,7 @@ void ARM11_StartExec(struct ARM11MPCore* ARM11)
 	else
 	{
 		// instruction was not executed.
-		printf("INSTR: %08X SKIP\n", ARM11->Instr.Data);
+		//printf("INSTR: %08X SKIP\n", ARM11->Instr.Data);
 	}
 }
 
@@ -459,6 +477,6 @@ void ARM11_RunInterpreter(struct ARM11MPCore* ARM11, u64 target)
 		if (ARM11->Thumb) THUMB11_StartExec(ARM11);
 		else ARM11_StartExec(ARM11);
 		ARM11->Timestamp++;
-		printf("times: %li %li\n", ARM11->Timestamp, target);
+		//printf("times: %li %li\n", ARM11->Timestamp, target);
 	}
 }

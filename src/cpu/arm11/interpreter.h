@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../types.h"
+#include "../../utils.h"
 
 enum : u8
 {
@@ -456,6 +456,7 @@ void THUMB11_ADD_SUB_CMP_MOV_Imm8(struct ARM11MPCore* ARM11);
 void THUMB11_ALU(struct ARM11MPCore* ARM11);
 void THUMB11_ALU_HI(struct ARM11MPCore* ARM11);
 void THUMB11_ADD_SP_PCRel(struct ARM11MPCore* ARM11);
+void THUMB11_ADD_SUB_SP(struct ARM11MPCore* ARM11);
 
 void ARM11_LDR_STR(struct ARM11MPCore* ARM11);
 void ARM11_LDM_STM(struct ARM11MPCore* ARM11);
@@ -464,6 +465,8 @@ void THUMB11_LDR_STR_SPRel(struct ARM11MPCore* ARM11);
 void THUMB11_LDR_STR_Reg(struct ARM11MPCore* ARM11);
 void THUMB11_LDR_STR_Imm5(struct ARM11MPCore* ARM11);
 void THUMB11_LDRH_STRH_Imm5(struct ARM11MPCore* ARM11);
+void THUMB11_PUSH(struct ARM11MPCore* ARM11);
+void THUMB11_POP(struct ARM11MPCore* ARM11);
 
 void ARM11_B_BL(struct ARM11MPCore* ARM11);
 void ARM11_BX_BLXReg(struct ARM11MPCore* ARM11);

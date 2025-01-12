@@ -1,7 +1,7 @@
 #include <stdio.h>
 //#include "main.h"
 #include "cpu/arm11/interpreter.h"
-#include "bus.h"
+#include "cpu/arm11/bus.h"
 
 char* Emu_Init()
 {
@@ -30,7 +30,7 @@ int main()
     u64 target = 8;
     while (true)
     {
-        printf("CPU0 TIME!\n");
+        //printf("CPU0 TIME!\n");
         ARM11_RunInterpreter(&ARM11[0], target);
         /*printf("CPU1 TIME!\n");
         ARM11_RunInterpreter(&ARM11[1], target);

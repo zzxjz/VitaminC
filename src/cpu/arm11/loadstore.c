@@ -1,6 +1,5 @@
-#include <stdio.h>
 #include "interpreter.h"
-#include "../../bus.h"
+#include "bus.h"
 
 void ARM11_LDR_STR(struct ARM11MPCore* ARM11)
 {
@@ -117,11 +116,10 @@ void ARM11_LDM_STM(struct ARM11MPCore* ARM11)
         wbbase = rn + (rcount*4);
     }
 
-    if (s && !r15) ARM11_UpdateMode(ARM11, ARM11->CPSR, 0x10); // swap to user mode regs
+    if (s && !r15) ARM11_UpdateMode(ARM11, ARM11->Mode, 0x10); // swap to user mode regs
 
     while (rlist)
     {
-        printf("%04X\n", rlist);
         int reg = __builtin_ctz(rlist);
         rlist &= ~1<<reg;
 
@@ -133,7 +131,7 @@ void ARM11_LDM_STM(struct ARM11MPCore* ARM11)
         if (!(p^u)) base += 4;
     }
 
-    if (s && !r15) ARM11_UpdateMode(ARM11, 0x10, ARM11->CPSR); // restore actual mode's regs
+    if (s && !r15) ARM11_UpdateMode(ARM11, 0x10, ARM11->Mode); // restore actual mode's regs
 
     if (w)
     {
@@ -223,3 +221,64 @@ void THUMB11_LDRH_STRH_Imm5(struct ARM11MPCore* ARM11)
     else Bus11_Store16(ARM11, addr, ARM11_GetReg(ARM11, rd));
 }
 
+void THUMB11_PUSH(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+    u32 base = ARM11_GetReg(ARM11, 13);
+    const int numregs = __builtin_popcount(curinstr & 0x1FF);
+    u8 rlist = curinstr;
+    const bool r = curinstr & (1<<8);
+    const u32 wbbase = base -= (4*numregs);
+
+    while (rlist)
+    {
+        int reg = __builtin_ctz(rlist);
+        rlist &= ~1<<reg;
+
+        Bus11_Store32(ARM11, base, ARM11_GetReg(ARM11, reg));
+
+        base += 4;        
+    }
+
+    if (r)
+    {
+        int reg = 14;
+
+        Bus11_Store32(ARM11, base, ARM11_GetReg(ARM11, reg));
+
+        base += 4;
+    }
+
+    ARM11_WriteReg(ARM11, 13, base, false, false);
+}
+
+void THUMB11_POP(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+    u32 base = ARM11_GetReg(ARM11, 13);
+    const int numregs = __builtin_popcount(curinstr & 0x1FF);
+    u8 rlist = curinstr;
+    const bool r = curinstr & (1<<8);
+    const u32 wbbase = base += (4*numregs);
+
+    while (rlist)
+    {
+        int reg = __builtin_ctz(rlist);
+        rlist &= ~1<<reg;
+
+        ARM11_WriteReg(ARM11, reg, Bus11_Load32(ARM11, base), false, false);
+
+        base += 4;    
+    }
+
+    if (r)
+    {
+        int reg = 15;
+
+        ARM11_WriteReg(ARM11, reg, Bus11_Load32(ARM11, base), false, true);
+
+        base += 4;
+    }
+
+    ARM11_WriteReg(ARM11, 13, base, false, false);
+}

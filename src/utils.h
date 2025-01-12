@@ -13,3 +13,14 @@ typedef uint32_t u32;
 
 typedef int64_t s64;
 typedef uint64_t u64;
+
+struct Pattern
+{
+    u32 bits;
+    u32 mask;
+};
+
+inline bool PatternMatch(const struct Pattern pattern, const u32 bits)
+{
+    return ((bits & pattern.mask) == pattern.bits);
+}
