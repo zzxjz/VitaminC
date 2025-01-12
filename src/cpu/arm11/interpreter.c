@@ -94,18 +94,19 @@ void* ARM11_InitTHUMBInstrLUT(const u8 bits)
 	CHECK(000000, 111000, THUMB11_ShiftImm); // shift by imm
 	CHECK(001000, 111000, THUMB11_ADD_SUB_CMP_MOV_Imm8); // add/sub/cmp/mov imm
 	CHECK(010000, 111111, THUMB11_ALU); // data proc reg
-	CHECK(010001, 111111, NULL); // spec data proc/b(l)x
-	CHECK(010010, 111110, NULL); // ldr pcrel
-	CHECK(010100, 111100, NULL); // ldr/str reg
-	CHECK(011000, 111000, NULL); // (ld/st)r(b) imm
-	CHECK(100000, 111100, NULL); // ldrh/strh imm
-	CHECK(100100, 111100, NULL); // ldr/str sprel
+	CHECK(010001, 111111, THUMB11_ALU_HI); // spec data proc/b(l)x
+	CHECK(010010, 111110, THUMB11_LDRPCRel); // ldr pcrel
+	CHECK(010100, 111100, THUMB11_LDR_STR_Reg); // ldr/str reg
+	CHECK(011000, 111000, THUMB11_LDR_STR_Imm5); // (ld/st)r(b) imm
+	CHECK(100000, 111100, THUMB11_LDRH_STRH_Imm5); // ldrh/strh imm
+	CHECK(100100, 111100, THUMB11_LDR_STR_SPRel); // ldr/str sprel
+	CHECK(101000, 111100, THUMB11_ADD_SP_PCRel); // add sp/pcrel
 	CHECK(101100, 111100, NULL); // misc
 	CHECK(110000, 111100, NULL); // ldm/stm
 	CHECK(110100, 111100, THUMB11_CondB_SWI); // cond b/udf/svc
 	CHECK(111000, 111110, THUMB11_B); // b
-	CHECK(111100, 111110, NULL); // blx prefix
-	CHECK(111010, 111010, NULL); // bl suffix
+	CHECK(111100, 111110, THUMB11_BL_BLX_LO); // bl(x) prefix
+	CHECK(111010, 111010, THUMB11_BL_BLX_HI); // bl(x) suffix
 	return NULL; // udf
 }
 

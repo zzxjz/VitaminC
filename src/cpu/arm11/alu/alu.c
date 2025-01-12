@@ -486,3 +486,34 @@ void THUMB11_ALU(struct ARM11MPCore* ARM11)
     case 0xF: ARM11_MVN(ARM11, rd, rm, true);
     }
 }
+
+void THUMB11_ALU_HI(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+    const u8 opcode = (curinstr >> 8) & 0x3;
+    const u8 rd = ((curinstr >> 4) & 0x8) | (curinstr & 0x7);
+    const u8 rm = ((curinstr >> 3) & 0x8) | ((curinstr >> 3) & 0x7);
+    const u32 rdval = ARM11_GetReg(ARM11, rd);
+    const u32 rmval = ARM11_GetReg(ARM11, rm);
+
+    switch(opcode)
+    {
+    case 0b00: ARM11_ADD(ARM11, rd, rdval, rmval, false);
+    case 0b01: ARM11_CMP(ARM11, rd, rdval, rmval);
+    case 0b10: ARM11_MOV(ARM11, rd, rmval, false);
+    case 0b11: THUMB11_BLX_BX_Reg(ARM11, rmval);
+    }
+}
+
+void THUMB11_ADD_SP_PCRel(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+    const u8 rd = (curinstr >> 8) & 0x7;
+    const u8 imm8 = curinstr;
+    const bool sp = curinstr & (1<<11);
+
+    u32 val = (sp ? ARM11_GetReg(ARM11, 13) : (ARM11_GetReg(ARM11, 15) & ~0x3));
+    val += imm8 * 4;
+
+    ARM11_WriteReg(ARM11, rd, val, false, false);
+}

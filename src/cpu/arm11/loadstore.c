@@ -140,3 +140,86 @@ void ARM11_LDM_STM(struct ARM11MPCore* ARM11)
         ARM11_WriteReg(ARM11, (curinstr >> 16) & 0xF, wbbase, false, false);
     }
 }
+
+void THUMB11_LDRPCRel(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+    const u8 imm8 = curinstr;
+    const u8 rd = (curinstr >> 8) & 0x7;
+
+    u32 addr = ARM11_GetReg(ARM11, 15) & ~3;
+    addr += imm8 * 4;
+
+    ARM11_WriteReg(ARM11, rd, Bus11_Load32(ARM11, addr), false, false);
+}
+
+void THUMB11_LDR_STR_SPRel(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+    const u8 imm8 = curinstr;
+    const u8 rd = (curinstr >> 8) & 0x7;
+    const bool l = curinstr & (1<<11);
+
+    u32 addr = ARM11_GetReg(ARM11, 13);
+    addr += imm8 * 4;
+
+    if (l) ARM11_WriteReg(ARM11, rd, Bus11_Load32(ARM11, addr), false, false);
+    else Bus11_Store32(ARM11, addr, ARM11_GetReg(ARM11, rd));
+}
+
+void THUMB11_LDR_STR_Reg(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+    const u8 rm = (curinstr >> 6) & 0x7;
+    const u8 rn = (curinstr >> 3) & 0x7;
+    const u8 rd = curinstr & 0x7;
+    const u8 opcode = (curinstr >> 9) & 0x7;
+    
+    const u32 addr = ARM11_GetReg(ARM11, rm) + ARM11_GetReg(ARM11, rn);
+
+    switch(opcode)
+    {
+    case 0x0: Bus11_Store32(ARM11, addr, ARM11_GetReg(ARM11, rd)); break; // ----------------------------------------- str
+    case 0x1: Bus11_Store16(ARM11, addr, ARM11_GetReg(ARM11, rd)); break; // ----------------------------------------- strh
+    case 0x2: Bus11_Store8(ARM11, addr, ARM11_GetReg(ARM11, rd)); break; // ------------------------------------------ strb
+    case 0x3: ARM11_WriteReg(ARM11, rd, (s32)(s8)Bus11_Load8(ARM11, addr), false, false); break; // - ldrsb
+    case 0x4: ARM11_WriteReg(ARM11, rd, Bus11_Load32(ARM11, addr), false, false); break; // --------- ldr
+    case 0x5: ARM11_WriteReg(ARM11, rd, Bus11_Load16(ARM11, addr), false, false); break; // --------- ldrh
+    case 0x6: ARM11_WriteReg(ARM11, rd, Bus11_Load8(ARM11, addr), false, false); break; // ---------- ldrb
+    case 0x7: ARM11_WriteReg(ARM11, rd, (s32)(s16)Bus11_Load16(ARM11, addr), false, false); break; // ldrsh
+    }
+}
+
+void THUMB11_LDR_STR_Imm5(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+    const u8 rd = curinstr & 0x7;
+    const u8 rn = (curinstr >> 3) & 0x7;
+    const u8 imm5 = (curinstr >> 6) & 0x1F;
+    const u8 opcode = (curinstr >> 11) & 0x3;
+
+    const u32 addr = ARM11_GetReg(ARM11, rn);
+
+    switch(opcode)
+    {
+    case 0b00: Bus11_Store32(ARM11, addr + (imm5*4), ARM11_GetReg(ARM11, rd)); break; // ------------------------------- str
+    case 0b01: ARM11_WriteReg(ARM11, rd, Bus11_Load32(ARM11, addr + (imm5*4)), false, false); break; // ldr
+    case 0b10: Bus11_Store8(ARM11, addr + imm5, ARM11_GetReg(ARM11, rd)); break; // ------------------------------------ strb
+    case 0b11: ARM11_WriteReg(ARM11, rd, Bus11_Load8(ARM11, addr + imm5), false, false); break; // ---- ldrb
+    }
+}
+
+void THUMB11_LDRH_STRH_Imm5(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+    const u8 rd = curinstr & 0x7;
+    const u8 rn = (curinstr >> 3) & 0x7;
+    const u8 imm5 = (curinstr >> 6) & 0x1F;
+    const u8 l = curinstr & (1<<11);
+
+    const u32 addr = ARM11_GetReg(ARM11, rn) + (imm5 * 2);
+
+    if (l) ARM11_WriteReg(ARM11, rd, Bus11_Load16(ARM11, addr), false, false);
+    else Bus11_Store16(ARM11, addr, ARM11_GetReg(ARM11, rd));
+}
+

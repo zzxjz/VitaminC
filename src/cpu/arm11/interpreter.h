@@ -431,6 +431,7 @@ extern void (*THUMB11_InstrLUT[0x40]) (struct ARM11MPCore* ARM11);
 extern struct ARM11MPCore ARM11[4];
 
 void* ARM11_InitARMInstrLUT(const u16 bits);
+void* ARM11_InitTHUMBInstrLUT(const u8 bits);
 
 u32 ARM11_ROR32(u32 val, u8 ror);
 
@@ -446,19 +447,31 @@ void ARM11_RunInterpreter(struct ARM11MPCore* ARM11, u64 target);
 
 bool ARM11_CP15_PageTable_Lookup(struct ARM11MPCore* ARM11, u32* addr, const u8 accesstype);
 
+
+// instr implementations
 void ARM11_ALU(struct ARM11MPCore* ARM11);
 void THUMB11_ShiftImm(struct ARM11MPCore* ARM11);
 void THUMB11_ADD_SUB_Reg_Imm3(struct ARM11MPCore* ARM11);
 void THUMB11_ADD_SUB_CMP_MOV_Imm8(struct ARM11MPCore* ARM11);
 void THUMB11_ALU(struct ARM11MPCore* ARM11);
+void THUMB11_ALU_HI(struct ARM11MPCore* ARM11);
+void THUMB11_ADD_SP_PCRel(struct ARM11MPCore* ARM11);
 
 void ARM11_LDR_STR(struct ARM11MPCore* ARM11);
 void ARM11_LDM_STM(struct ARM11MPCore* ARM11);
+void THUMB11_LDRPCRel(struct ARM11MPCore* ARM11);
+void THUMB11_LDR_STR_SPRel(struct ARM11MPCore* ARM11);
+void THUMB11_LDR_STR_Reg(struct ARM11MPCore* ARM11);
+void THUMB11_LDR_STR_Imm5(struct ARM11MPCore* ARM11);
+void THUMB11_LDRH_STRH_Imm5(struct ARM11MPCore* ARM11);
 
 void ARM11_B_BL(struct ARM11MPCore* ARM11);
 void ARM11_BX_BLXReg(struct ARM11MPCore* ARM11);
 void THUMB11_CondB_SWI(struct ARM11MPCore* ARM11);
 void THUMB11_B(struct ARM11MPCore* ARM11);
+void THUMB11_BL_BLX_LO(struct ARM11MPCore* ARM11);
+void THUMB11_BL_BLX_HI(struct ARM11MPCore* ARM11);
+void THUMB11_BLX_BX_Reg(struct ARM11MPCore* ARM11, const u32 addr);
 
 void ARM11_MCR_MRC(struct ARM11MPCore* ARM11);
 void ARM11_CP15_Store_Single(struct ARM11MPCore* ARM11, u16 cmd, u32 val);
