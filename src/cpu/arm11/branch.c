@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "interpreter.h"
 #include "../../types.h"
 
@@ -17,7 +18,7 @@ void ARM11_B_BL(struct ARM11MPCore* ARM11)
     ARM11_Branch(ARM11, ARM11_GetReg(ARM11, 15) + (s32)target, false);
 }
 
-void ARM_BX(struct ARM11MPCore* ARM11)
+void ARM11_BX_BLXReg(struct ARM11MPCore* ARM11)
 {
     const u32 curinstr = ARM11->Instr.Data;
     const bool l = curinstr & (1<<5);
@@ -28,4 +29,29 @@ void ARM_BX(struct ARM11MPCore* ARM11)
     }
 
     ARM11_Branch(ARM11, ARM11_GetReg(ARM11, curinstr & 0xF), false);
+}
+
+void THUMB11_CondB_SWI(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+    const u8 condition = (curinstr >> 8) & 0xF;
+
+    if (condition == COND_AL) printf("UNIMPLEMENTED T COND B cond 0xE!!!\n"); return;
+    if (condition == COND_NV) printf("UNIMPLEMENTED T SWI\n"); return;
+
+	if (CondLookup[condition] & (1<<ARM11->Flags))
+    {
+        s32 offset = ((s16)(s8)curinstr) << 1;
+        u32 addr = ARM11_GetReg(ARM11, 15) + offset;
+        ARM11_Branch(ARM11, addr | 1, false);
+    }
+}
+
+void THUMB11_B(struct ARM11MPCore* ARM11)
+{
+    const u16 curinstr = ARM11->Instr.Data;
+
+    s32 offset = ((s16)curinstr << 5) >> 4;
+    u32 addr = ARM11_GetReg(ARM11, 15) + offset;
+    ARM11_Branch(ARM11, addr | 1, false);
 }

@@ -69,23 +69,29 @@ void ARM11_LDR_STR(struct ARM11MPCore* ARM11)
         if (p) addr += offset;
     }
 
-    if (!p && w)
-        ; // todo: translate
+    u8 oldmode;
+    if (!p && w) // translate: switch mode to emulate switching to user perms
+    {
+        oldmode = ARM11->Mode;
+        ARM11->Mode = 0x10;
+    }
 
     if (b)
     {
-        if (l) ARM11_WriteReg(ARM11, rd, Bus11_Load8(ARM11, addr), false); // ldrb
+        if (l) ARM11_WriteReg(ARM11, rd, Bus11_Load8(ARM11, addr), false, !ARM11->CP15.ARMv4Thingy); // ldrb
         else Bus11_Store8(ARM11, addr, ARM11_GetReg(ARM11, rd)); // strb
     }
     else
     {
-        if (l) ARM11_WriteReg(ARM11, rd, Bus11_Load32(ARM11, addr), false); // ldr
+        if (l) ARM11_WriteReg(ARM11, rd, Bus11_Load32(ARM11, addr), false, !ARM11->CP15.ARMv4Thingy); // ldr
         else Bus11_Store32(ARM11, addr, ARM11_GetReg(ARM11, rd)); // str
     }
 
+    if (!p && w) ARM11->Mode = oldmode; // restore old mode
+
     if (w || !p)
     {
-        ARM11_WriteReg(ARM11, rn, writeback, false);
+        ARM11_WriteReg(ARM11, rn, writeback, false, false);
     }
 }
 
@@ -111,7 +117,7 @@ void ARM11_LDM_STM(struct ARM11MPCore* ARM11)
         wbbase = rn + (rcount*4);
     }
 
-    if (l && s && ! r15) printf("WARNING: USER MODE LDM UNIMPLEMENTED\n"); // todo: user mode regs
+    if (s && !r15) ARM11_UpdateMode(ARM11, ARM11->CPSR, 0x10); // swap to user mode regs
 
     while (rlist)
     {
@@ -121,14 +127,16 @@ void ARM11_LDM_STM(struct ARM11MPCore* ARM11)
 
         if (p^u) base += 4;
 
-        if (l) ARM11_WriteReg(ARM11, reg, Bus11_Load32(ARM11, base), s);
+        if (l) ARM11_WriteReg(ARM11, reg, Bus11_Load32(ARM11, base), s, !ARM11->CP15.ARMv4Thingy);
         else Bus11_Store32(ARM11, base, ARM11_GetReg(ARM11, reg)); // todo: stores
 
         if (!(p^u)) base += 4;
     }
 
+    if (s && !r15) ARM11_UpdateMode(ARM11, 0x10, ARM11->CPSR); // restore actual mode's regs
+
     if (w)
     {
-        ARM11_WriteReg(ARM11, (curinstr >> 16) & 0xF, wbbase, false);
+        ARM11_WriteReg(ARM11, (curinstr >> 16) & 0xF, wbbase, false, false);
     }
 }

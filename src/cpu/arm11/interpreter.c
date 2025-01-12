@@ -6,7 +6,7 @@
 #include "../../bus.h"
 
 // stolen from melonds oops
-alignas(32) static const u16 CondLookup[16] =
+alignas(32) const u16 CondLookup[16] =
 {
     0xF0F0, // EQ
     0x0F0F, // NE
@@ -55,7 +55,7 @@ void* ARM11_InitARMInstrLUT(const u16 bits)
 	CHECK(000100000000, 111110111111, ARM11_MRS) // mrs
 	CHECK(000100100000, 111110111111, ARM11_MSRReg) // msr (reg)
 	CHECK(001100100000, 111110110000, ARM11_MSRImm_Hints) // msr (imm) / hints
-	CHECK(000100100001, 111111111101, ARM_BX_BLXReg) // bx/blx (reg)
+	CHECK(000100100001, 111111111101, ARM11_BX_BLXReg) // bx/blx (reg)
 	CHECK(000100100010, 111111111111, NULL) // bxj
 	CHECK(000101100001, 111111111111, NULL) // clz
 	CHECK(000100000100, 111110011111, NULL) // q(d)add/sub
@@ -102,8 +102,8 @@ void* ARM11_InitTHUMBInstrLUT(const u8 bits)
 	CHECK(100100, 111100, NULL); // ldr/str sprel
 	CHECK(101100, 111100, NULL); // misc
 	CHECK(110000, 111100, NULL); // ldm/stm
-	CHECK(110100, 111100, NULL); // cond b/udf/svc
-	CHECK(111000, 111110, NULL); // b
+	CHECK(110100, 111100, THUMB11_CondB_SWI); // cond b/udf/svc
+	CHECK(111000, 111110, THUMB11_B); // b
 	CHECK(111100, 111110, NULL); // blx prefix
 	CHECK(111010, 111010, NULL); // bl suffix
 	return NULL; // udf
@@ -147,13 +147,13 @@ char* ARM11_Init()
 	return NULL;
 }
 
-void ARM11_UpdateMode(struct ARM11MPCore* ARM11, u8 newmode)
+void ARM11_UpdateMode(struct ARM11MPCore* ARM11, u8 oldmode, u8 newmode)
 {
-	printf("%X, %X\n", ARM11->Mode, newmode);
+	printf("UPDATE MODE: %X, %X\n", oldmode, newmode);
 
-	if (ARM11->Mode == newmode) return;
+	if (oldmode == newmode) return;
 
-	switch (ARM11->Mode)
+	switch (oldmode)
 	{
 	case 0x10: // USR
 	case 0x1F: // SYS
@@ -233,7 +233,7 @@ void ARM11_MRS(struct ARM11MPCore* ARM11)
 	u32 psr;
 	if (r) psr = ARM11->SPSR ? *ARM11->SPSR : 0;
 	else psr = ARM11->CPSR;
-	ARM11_WriteReg(ARM11, rd, psr, false);
+	ARM11_WriteReg(ARM11, rd, psr, false, false);
 }
 
 void ARM11_MSR(struct ARM11MPCore* ARM11, u32 val)
@@ -271,10 +271,10 @@ void ARM11_MSR(struct ARM11MPCore* ARM11, u32 val)
 	}
 	else
 	{
-		if (val & 0x01000020) printf("SETTING T OR J BIT!!! PANIC!!!!!!\n");
+		if (val & 0x01000020) printf("MSR SETTING T OR J BIT!!! PANIC!!!!!!\n");
 
 		val |= ARM11->CPSR & ~writemask;
-		ARM11_UpdateMode(ARM11, val&0x1F);
+		ARM11_UpdateMode(ARM11, ARM11->CPSR, val&0x1F);
 		ARM11->CPSR = val;
 	}
 }
@@ -322,17 +322,44 @@ void ARM11_MSRImm_Hints(struct ARM11MPCore* ARM11)
 	}
 }
 
-void ARM11_Branch(struct ARM11MPCore* ARM11, const u32 addr, const bool restore)
+u32 ARM11_CodeFetch(struct ARM11MPCore* ARM11)
+{
+	return Bus11_InstrLoad32(ARM11, ARM11->PC);
+}
+
+void ARM11_Branch(struct ARM11MPCore* ARM11, u32 addr, const bool restore)
 {
 	printf("Jumping to %08X\n", addr);
-	ARM11->PC = addr;
 
 	if (restore)
 	{
 		const u32 spsr = *ARM11->SPSR;
-		ARM11_UpdateMode(ARM11, spsr & 0x1F);
+		ARM11_UpdateMode(ARM11, ARM11->CPSR, spsr & 0x1F);
 		ARM11->CPSR = spsr;
+
+		addr &= ~0x1;
+		addr |= ARM11->Thumb;
 	}
+
+	if (addr & 0x1)
+	{
+		ARM11->Thumb = true;
+
+		addr &= ~0x1;
+
+		if (addr & 0x2)
+		{
+			ARM11->Instr.Data = ARM11_CodeFetch(ARM11);
+		}
+	}
+	else
+	{
+		ARM11->Thumb = false;
+
+		addr &= ~0x3;
+	}
+
+	ARM11->PC = addr;
 }
 
 inline u32 ARM11_GetReg(struct ARM11MPCore* ARM11, const int reg)
@@ -344,10 +371,15 @@ inline u32 ARM11_GetReg(struct ARM11MPCore* ARM11, const int reg)
 	else return ARM11->R[reg];
 }
 
-inline void ARM11_WriteReg(struct ARM11MPCore* ARM11, const int reg, const u32 val, const bool restore)
+inline void ARM11_WriteReg(struct ARM11MPCore* ARM11, const int reg, u32 val, const bool restore, const bool canswap)
 {
 	if (reg == 15)
 	{
+		if (!canswap)
+		{
+			if (ARM11->Thumb) val |= 1;
+			else val &= ~1;
+		}
 		ARM11_Branch(ARM11, val, restore);
 	}
 	else
@@ -356,15 +388,12 @@ inline void ARM11_WriteReg(struct ARM11MPCore* ARM11, const int reg, const u32 v
 	}
 }
 
-u32 ARM11_CodeFetch(struct ARM11MPCore* ARM11)
-{
-	return Bus11_InstrLoad32(ARM11, ARM11->PC);
-}
-
 void ARM11_StartFetch(struct ARM11MPCore* ARM11)
 {
-	ARM11->Instr.Data = ARM11_CodeFetch(ARM11); 
-	ARM11->PC += 4;
+	if (!(ARM11->PC & 0x2)) ARM11->Instr.Data = ARM11_CodeFetch(ARM11);
+	else ARM11->Instr.Data >>= 16;
+
+	ARM11->PC += (ARM11->Thumb ? 2 : 4);
 }
 
 void ARM11_StartExec(struct ARM11MPCore* ARM11)
@@ -381,7 +410,7 @@ void ARM11_StartExec(struct ARM11MPCore* ARM11)
 			(ARM11_InstrLUT[decodebits])(ARM11);
 		else
 		{
-			printf("UNIMPL INSTR: %08X %08X!!!\n", ARM11->Instr.Data, ARM11->PC);
+			printf("UNIMPL ARM INSTR: %08X @ %08X!!!\n", ARM11->Instr.Data, ARM11->PC);
 			for (int i = 0; i < 16; i++) printf("%i, %08X ", i, ARM11->R[i]);
 			while (true)
 				;
@@ -404,13 +433,30 @@ void ARM11_StartExec(struct ARM11MPCore* ARM11)
 	}
 }
 
+void THUMB11_StartExec(struct ARM11MPCore* ARM11)
+{
+	const u16 instr = ARM11->Instr.Data;
+
+	const u8 decodebits = instr >> 10;
+
+	if (THUMB11_InstrLUT[decodebits])
+		(THUMB11_InstrLUT[decodebits])(ARM11);
+	else
+	{
+		printf("UNIMPL THUMB INSTR: %04X @ %08X\n", instr, ARM11->PC);
+		while(true)
+			;
+	}
+}
+
 void ARM11_RunInterpreter(struct ARM11MPCore* ARM11, u64 target)
 {
 	while (ARM11->Timestamp <= target)
 	{
         //(ARM11->NextStep)(ARM11);
 		ARM11_StartFetch(ARM11);
-		ARM11_StartExec(ARM11);
+		if (ARM11->Thumb) THUMB11_StartExec(ARM11);
+		else ARM11_StartExec(ARM11);
 		ARM11->Timestamp++;
 		printf("times: %li %li\n", ARM11->Timestamp, target);
 	}

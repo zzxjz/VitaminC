@@ -169,6 +169,8 @@ enum
 	TLB_Instr = 0b10,
 };
 
+extern const u16 CondLookup[16];
+
 struct ARM11MPCore
 {
 	// registers
@@ -202,8 +204,8 @@ struct ARM11MPCore
 		{
 			u32 Mode : 5;
 			bool Thumb : 1;
-			bool FIQEnable : 1;
-			bool IRQEnable : 1;
+			bool FIQDisable : 1;
+			bool IRQDisable : 1;
 			bool ImpreciseAbortEnable : 1;
 			bool DataBigEndian : 1;
 			u32 : 6;
@@ -433,11 +435,13 @@ void* ARM11_InitARMInstrLUT(const u16 bits);
 u32 ARM11_ROR32(u32 val, u8 ror);
 
 char* ARM11_Init();
+void ARM11_UpdateMode(struct ARM11MPCore* ARM11, u8 oldmode, u8 newmode);
 void ARM11_Branch(struct ARM11MPCore* ARM11, const u32 addr, const bool restore);
 u32 ARM11_GetReg(struct ARM11MPCore* ARM11, const int reg);
-void ARM11_WriteReg(struct ARM11MPCore* ARM11, const int reg, const u32 val, const bool restore);
+void ARM11_WriteReg(struct ARM11MPCore* ARM11, const int reg, const u32 val, const bool restore, const bool canswap);
 void ARM11_StartFetch(struct ARM11MPCore* ARM11);
 void ARM11_StartExec(struct ARM11MPCore* ARM11);
+void THUMB11_StartExec(struct ARM11MPCore* ARM11);
 void ARM11_RunInterpreter(struct ARM11MPCore* ARM11, u64 target);
 
 bool ARM11_CP15_PageTable_Lookup(struct ARM11MPCore* ARM11, u32* addr, const u8 accesstype);
@@ -452,7 +456,9 @@ void ARM11_LDR_STR(struct ARM11MPCore* ARM11);
 void ARM11_LDM_STM(struct ARM11MPCore* ARM11);
 
 void ARM11_B_BL(struct ARM11MPCore* ARM11);
-void ARM_BX_BLXReg(struct ARM11MPCore* ARM11);
+void ARM11_BX_BLXReg(struct ARM11MPCore* ARM11);
+void THUMB11_CondB_SWI(struct ARM11MPCore* ARM11);
+void THUMB11_B(struct ARM11MPCore* ARM11);
 
 void ARM11_MCR_MRC(struct ARM11MPCore* ARM11);
 void ARM11_CP15_Store_Single(struct ARM11MPCore* ARM11, u16 cmd, u32 val);

@@ -12,7 +12,7 @@ void ARM11_AND(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 
         ARM11->Zero = !aluout;
     }
 
-    ARM11_WriteReg(ARM11, rd, aluout, s);
+    ARM11_WriteReg(ARM11, rd, aluout, s, false);
 }
 
 void ARM11_EOR(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout, const bool s)
@@ -25,7 +25,7 @@ void ARM11_EOR(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 
         ARM11->Zero = !aluout;
     }
 
-    ARM11_WriteReg(ARM11, rd, aluout, s);
+    ARM11_WriteReg(ARM11, rd, aluout, s, false);
 }
 
 void ARM11_SUB_RSB(struct ARM11MPCore* ARM11, const int rd, const u32 a, const u32 b, const bool s)
@@ -40,7 +40,7 @@ void ARM11_SUB_RSB(struct ARM11MPCore* ARM11, const int rd, const u32 a, const u
         ARM11->Zero = !aluout;
     }
 
-    ARM11_WriteReg(ARM11, rd, aluout, s);
+    ARM11_WriteReg(ARM11, rd, aluout, s, false);
 }
 
 void ARM11_ADD(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout, const bool s)
@@ -56,7 +56,7 @@ void ARM11_ADD(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 
         ARM11->Zero = !aluout;
     }
 
-    ARM11_WriteReg(ARM11, rd, aluout, s);
+    ARM11_WriteReg(ARM11, rd, aluout, s, false);
 }
 
 void ARM11_ADC(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout, const bool s)
@@ -72,7 +72,7 @@ void ARM11_ADC(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 
         ARM11->Zero = !aluout;
     }
 
-    ARM11_WriteReg(ARM11, rd, aluout, s);
+    ARM11_WriteReg(ARM11, rd, aluout, s, false);
 }
 
 void ARM11_SBC_RSC(struct ARM11MPCore* ARM11, const int rd, const u32 a, const u32 b, const bool s)
@@ -87,7 +87,7 @@ void ARM11_SBC_RSC(struct ARM11MPCore* ARM11, const int rd, const u32 a, const u
         ARM11->Zero = !aluout;
     }
 
-    ARM11_WriteReg(ARM11, rd, aluout, s);
+    ARM11_WriteReg(ARM11, rd, aluout, s, false);
 }
 
 void ARM11_TST(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout)
@@ -161,7 +161,7 @@ void ARM11_ORR(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 
         ARM11->Zero = !aluout;
     }
 
-    ARM11_WriteReg(ARM11, rd, aluout, s);
+    ARM11_WriteReg(ARM11, rd, aluout, s, false);
 }
 
 void ARM11_MOV(struct ARM11MPCore* ARM11, const int rd, const u32 shifterout, const bool s)
@@ -174,7 +174,7 @@ void ARM11_MOV(struct ARM11MPCore* ARM11, const int rd, const u32 shifterout, co
         ARM11->Zero = !aluout;
     }
 
-    ARM11_WriteReg(ARM11, rd, aluout, s);
+    ARM11_WriteReg(ARM11, rd, aluout, s, false);
 }
 
 void ARM11_BIC(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout, const bool s)
@@ -187,7 +187,7 @@ void ARM11_BIC(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 
         ARM11->Zero = !aluout;
     }
 
-    ARM11_WriteReg(ARM11, rd, aluout, s);
+    ARM11_WriteReg(ARM11, rd, aluout, s, false);
 }
 
 void ARM11_MVN(struct ARM11MPCore* ARM11, const int rd, const u32 shifterout, const bool s)
@@ -200,7 +200,7 @@ void ARM11_MVN(struct ARM11MPCore* ARM11, const int rd, const u32 shifterout, co
         ARM11->Zero = !aluout;
     }
 
-    ARM11_WriteReg(ARM11, rd, aluout, s);
+    ARM11_WriteReg(ARM11, rd, aluout, s, false);
 }
 
 void ARM11_ALU(struct ARM11MPCore* ARM11)
@@ -368,7 +368,7 @@ void THUMB11_LSL(struct ARM11MPCore* ARM11, const u8 rd, const u32 rm, const u32
     // aluout should always be 32 bits by this point
     ARM11->Negative = aluout >> 31;
     ARM11->Zero = aluout;
-    ARM11_WriteReg(ARM11, rd, aluout, false);
+    ARM11_WriteReg(ARM11, rd, aluout, false, false);
 }
 
 void THUMB11_LSR(struct ARM11MPCore* ARM11, const u8 rd, u32 rm, const u32 val)
@@ -380,7 +380,7 @@ void THUMB11_LSR(struct ARM11MPCore* ARM11, const u8 rd, u32 rm, const u32 val)
     }
     ARM11->Negative = false; // always cleared :(
     ARM11->Zero = rm;
-    ARM11_WriteReg(ARM11, rd, rm, false);
+    ARM11_WriteReg(ARM11, rd, rm, false, false);
 }
 
 void THUMB11_ASR(struct ARM11MPCore* ARM11, const u8 rd, u32 rm, const u32 val)
@@ -392,7 +392,7 @@ void THUMB11_ASR(struct ARM11MPCore* ARM11, const u8 rd, u32 rm, const u32 val)
     }
     ARM11->Negative = rm >> 31;
     ARM11->Zero = rm;
-    ARM11_WriteReg(ARM11, rd, rm, false);
+    ARM11_WriteReg(ARM11, rd, rm, false, false);
 }
 
 void THUMB11_ROR(struct ARM11MPCore* ARM11, const u8 rd, const u32 rdval, const u32 rs) // rick of rain is back!
@@ -407,7 +407,7 @@ void THUMB11_ROR(struct ARM11MPCore* ARM11, const u8 rd, const u32 rdval, const 
 
     ARM11->Negative = rorout >> 31;
     ARM11->Zero = rorout;
-    ARM11_WriteReg(ARM11, rd, rorout, false);
+    ARM11_WriteReg(ARM11, rd, rorout, false, false);
 }
 
 void THUMB11_ShiftImm(struct ARM11MPCore* ARM11)
