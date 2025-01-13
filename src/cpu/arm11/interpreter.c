@@ -348,7 +348,12 @@ u32 ARM11_CodeFetch(struct ARM11MPCore* ARM11)
 
 void ARM11_Branch(struct ARM11MPCore* ARM11, u32 addr, const bool restore)
 {
-	//printf("Jumping to %08X\n", addr);
+	if (addr != 0x00019220 &&
+		addr != 0x0001920C &&
+		addr != 0x00018084 &&
+		addr != 0x00014B45 &&
+		addr != 0x00012103)
+		printf("Jumping to %08X from %08X via %08X\n", addr, ARM11->PC, ARM11->Instr.Data);
 
 	if (restore)
 	{
@@ -365,6 +370,7 @@ void ARM11_Branch(struct ARM11MPCore* ARM11, u32 addr, const bool restore)
 		ARM11->Thumb = true;
 
 		addr &= ~0x1;
+		ARM11->PC = addr;
 
 		if (addr & 0x2)
 		{
@@ -376,16 +382,15 @@ void ARM11_Branch(struct ARM11MPCore* ARM11, u32 addr, const bool restore)
 		ARM11->Thumb = false;
 
 		addr &= ~0x3;
+		ARM11->PC = addr;
 	}
-
-	ARM11->PC = addr;
 }
 
 inline u32 ARM11_GetReg(struct ARM11MPCore* ARM11, const int reg)
 {
 	if (reg == 15)
 	{
-		return ARM11->PC + 4;
+		return ARM11->PC + (ARM11->Thumb ? 2 : 4);
 	}
 	else return ARM11->R[reg];
 }
@@ -440,6 +445,9 @@ void ARM11_StartExec(struct ARM11MPCore* ARM11)
 	else if (condcode == COND_NV) // do special handling for unconditional instructions
 	{
 		printf("UNCOND: %08X!!!!\n", ARM11->Instr.Data);
+		for (int i = 0; i < 16; i++) printf("%i, %08X ", i, ARM11->R[i]);
+		while (true)
+			;
 		//DecodeUncondInstr(instr);
 	}
 	else if (false) // TODO: handle illegal BKPTs? might still execute regardless of condition fail like the ARM9?

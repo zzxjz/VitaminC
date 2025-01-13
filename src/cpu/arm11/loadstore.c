@@ -228,8 +228,10 @@ void THUMB11_PUSH(struct ARM11MPCore* ARM11)
     const int numregs = __builtin_popcount(curinstr & 0x1FF);
     u8 rlist = curinstr;
     const bool r = curinstr & (1<<8);
-    const u32 wbbase = base -= (4*numregs);
+    base -= (4*numregs);
 
+    ARM11_WriteReg(ARM11, 13, base, false, false);
+    
     while (rlist)
     {
         int reg = __builtin_ctz(rlist);
@@ -248,18 +250,14 @@ void THUMB11_PUSH(struct ARM11MPCore* ARM11)
 
         base += 4;
     }
-
-    ARM11_WriteReg(ARM11, 13, base, false, false);
 }
 
 void THUMB11_POP(struct ARM11MPCore* ARM11)
 {
     const u16 curinstr = ARM11->Instr.Data;
     u32 base = ARM11_GetReg(ARM11, 13);
-    const int numregs = __builtin_popcount(curinstr & 0x1FF);
     u8 rlist = curinstr;
     const bool r = curinstr & (1<<8);
-    const u32 wbbase = base += (4*numregs);
 
     while (rlist)
     {

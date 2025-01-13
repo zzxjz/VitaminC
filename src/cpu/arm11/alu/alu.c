@@ -451,10 +451,10 @@ void THUMB11_ADD_SUB_CMP_MOV_Imm8(struct ARM11MPCore* ARM11)
 
     switch(opcode)
     {
-    case 0x0: ARM11_MOV(ARM11, rd, imm8, true);
-    case 0x1: ARM11_CMP(ARM11, rd, rdval, imm8);
-    case 0x2: ARM11_ADD(ARM11, rd, rdval, imm8, true);
-    case 0x3: ARM11_SUB_RSB(ARM11, rd, rdval, imm8, true);
+    case 0x0: ARM11_MOV(ARM11, rd, imm8, true); break;
+    case 0x1: ARM11_CMP(ARM11, rd, rdval, imm8); break;
+    case 0x2: ARM11_ADD(ARM11, rd, rdval, imm8, true); break;
+    case 0x3: ARM11_SUB_RSB(ARM11, rd, rdval, imm8, true); break;
     }
 }
 
@@ -468,22 +468,22 @@ void THUMB11_ALU(struct ARM11MPCore* ARM11)
 
     switch(opcode)
     {
-    case 0x0: ARM11_AND(ARM11, rd, rdval, rm, true);
-    case 0x1: ARM11_EOR(ARM11, rd, rdval, rm, true);
-    case 0x2: THUMB11_LSL(ARM11, rd, rdval, rm);
-    case 0x3: THUMB11_LSR(ARM11, rd, rdval, rm);
-    case 0x4: THUMB11_ASR(ARM11, rd, rdval, rm);
-    case 0x5: ARM11_ADC(ARM11, rd, rdval, rm, true);
-    case 0x6: ARM11_SBC_RSC(ARM11, rd, rdval, rm, true);
-    case 0x7: THUMB11_ROR(ARM11, rd, rdval, rm);
-    case 0x8: ARM11_TST(ARM11, rd, rdval, rm);
-    case 0x9: ARM11_SUB_RSB(ARM11, rd, 0, rm, true); // NEG
-    case 0xA: ARM11_CMP(ARM11, rd, rdval, rm);
-    case 0xB: ARM11_CMN(ARM11, rd, rdval, rm);
-    case 0xC: ARM11_ORR(ARM11, rd, rdval, rm, true);
+    case 0x0: ARM11_AND(ARM11, rd, rdval, rm, true); break;
+    case 0x1: ARM11_EOR(ARM11, rd, rdval, rm, true); break;
+    case 0x2: THUMB11_LSL(ARM11, rd, rdval, rm); break;
+    case 0x3: THUMB11_LSR(ARM11, rd, rdval, rm); break;
+    case 0x4: THUMB11_ASR(ARM11, rd, rdval, rm); break;
+    case 0x5: ARM11_ADC(ARM11, rd, rdval, rm, true); break;
+    case 0x6: ARM11_SBC_RSC(ARM11, rd, rdval, rm, true); break;
+    case 0x7: THUMB11_ROR(ARM11, rd, rdval, rm); break;
+    case 0x8: ARM11_TST(ARM11, rd, rdval, rm); break;
+    case 0x9: ARM11_SUB_RSB(ARM11, rd, 0, rm, true); break; // NEG
+    case 0xA: ARM11_CMP(ARM11, rd, rdval, rm); break;
+    case 0xB: ARM11_CMN(ARM11, rd, rdval, rm); break;
+    case 0xC: ARM11_ORR(ARM11, rd, rdval, rm, true); break;
     case 0xD: printf("UNIMPLEMENTED THUMB MULS!!!!"); break;
-    case 0xE: ARM11_BIC(ARM11, rd, rdval, rm, true);
-    case 0xF: ARM11_MVN(ARM11, rd, rm, true);
+    case 0xE: ARM11_BIC(ARM11, rd, rdval, rm, true); break;
+    case 0xF: ARM11_MVN(ARM11, rd, rm, true); break;
     }
 }
 
@@ -498,10 +498,10 @@ void THUMB11_ALU_HI(struct ARM11MPCore* ARM11)
 
     switch(opcode)
     {
-    case 0b00: ARM11_ADD(ARM11, rd, rdval, rmval, false);
-    case 0b01: ARM11_CMP(ARM11, rd, rdval, rmval);
-    case 0b10: ARM11_MOV(ARM11, rd, rmval, false);
-    case 0b11: THUMB11_BLX_BX_Reg(ARM11, rmval);
+    case 0b00: ARM11_ADD(ARM11, rd, rdval, rmval, false); break;
+    case 0b01: ARM11_CMP(ARM11, rd, rdval, rmval); break;
+    case 0b10: ARM11_MOV(ARM11, rd, rmval, false); break;
+    case 0b11: THUMB11_BLX_BX_Reg(ARM11, rmval); break;
     }
 }
 

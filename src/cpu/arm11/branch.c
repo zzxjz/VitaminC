@@ -60,7 +60,7 @@ void THUMB11_BL_BLX_LO(struct ARM11MPCore* ARM11)
 {
     const u16 curinstr = ARM11->Instr.Data;
 
-    s32 offset = ((s32)curinstr << 21) >> 9;
+    s32 offset = (s32)(curinstr << 21) >> 9;
 
     u32 addr = ARM11_GetReg(ARM11, 15) + offset;
 
@@ -70,17 +70,15 @@ void THUMB11_BL_BLX_LO(struct ARM11MPCore* ARM11)
 void THUMB11_BL_BLX_HI(struct ARM11MPCore* ARM11)
 {
     const u16 curinstr = ARM11->Instr.Data;
-    const bool x = curinstr & (1<<12);
+    const bool x = !(curinstr & (1<<12));
 
-    if (!x && (curinstr & 0x1)) { printf("INVALID BL HI!!!!\n"); return; }
+    if (x && (curinstr & 0x1)) { printf("INVALID BLX HI!!!!\n"); return; }
 
-    s32 offset = ((s16) curinstr << 5) >> 4;
-    offset += ARM11_GetReg(ARM11, 14);
+    u32 addr = (u64)ARM11_GetReg(ARM11, 14) + ((curinstr & 0x7FF) << 1);
 
-    u32 lr = (ARM11_GetReg(ARM11, 15) - 4) | 1;
+    u32 lr = (ARM11_GetReg(ARM11, 15) - 2) | 1;
     ARM11_WriteReg(ARM11, 14, lr, false, false);
 
-    u32 addr = offset;
     if (x) addr &= ~0x3;
     else addr |= 0x1;
 
@@ -94,7 +92,7 @@ void THUMB11_BLX_BX_Reg(struct ARM11MPCore* ARM11, const u32 addr)
 
     if (l)
     {
-        u32 lr = (ARM11_GetReg(ARM11, 15) - 4) | 1;
+        u32 lr = (ARM11_GetReg(ARM11, 15) - 2) | 1;
         ARM11_WriteReg(ARM11, 14, lr, false, false);
     }
 

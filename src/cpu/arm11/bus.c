@@ -43,7 +43,7 @@ char* Bus_Init()
     FCRAM[1] = calloc(1, FCRAM_Size);
     VRAM = calloc(1, VRAM_Size);
 
-    SCUControlReg = 0x1E;
+    SCUControlReg = 0x1FFE;
     return NULL;
 }
 
@@ -69,6 +69,9 @@ u32 Bus11_InstrLoad32(struct ARM11MPCore* ARM11, u32 addr)
 
     u8* val = Bus11_GetPtr(addr & ~0x3, BusAccess_32Bit);
     if (val) return *(u32*)val;
+    printf("PC: %08X\n", ARM11->PC);
+    while(true)
+        ;
     return 0;
 }
 
@@ -135,10 +138,24 @@ void Bus11_Store8(struct ARM11MPCore* ARM11, u32 addr, const u8 val)
     if (ptr) *ptr = val;
 }
 
+u8* Bus11_GetPtr_MPCorePriv(const u32 addr, const u8 accesstype)
+{
+    switch(addr & 0x1FFC)
+    {
+    case 0x0000: return &(((u8*)&SCUControlReg)[addr & 0x3]);
+    }
+
+    printf("UNK MPCORE PRIV RGN ACCESS: %08X %X\n", addr, accesstype);
+    return NULL;
+}
+
 u8* Bus11_GetPtr(const u32 addr, const u8 accesstype)
 {
     if (!(accesstype & BusAccess_Store) && ((addr < 0x20000) || (addr >= 0xFFFF0000)))
         return &Bios11[addr & (Bios11_Size-1)];
+
+    if ((addr & 0xFFFFE000) == 0x17E00000)
+        return Bus11_GetPtr_MPCorePriv(addr, accesstype);
 
     if ((addr & 0xFFF00000) == 0x1FF00000)
         return &WRAM[addr & (WRAM_Size-1)];

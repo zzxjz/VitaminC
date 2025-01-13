@@ -2,7 +2,7 @@ ODIR=build/obj
 SDIR=src
 
 CC=clang
-CFLAGS=-I./src -O3 -std=c23 -march=native -flto -fwrapv
+CFLAGS=-I./src -O3 -std=c23 -march=native -flto -fwrapv -Wimplicit-fallthrough
 
 _DEPS = main.h cpu/arm11/interpreter.h cpu/arm11/bus.h utils.h
 DEPS = $(patsubst %,$(SDIR)/%,$(_DEPS))
