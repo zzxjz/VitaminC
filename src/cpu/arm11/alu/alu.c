@@ -433,12 +433,13 @@ void THUMB11_ADD_SUB_Reg_Imm3(struct ARM11MPCore* ARM11)
     const bool imm = curinstr & (1<<10);
     const bool sub = curinstr & (1<<9);
     const u8 bits = (curinstr >> 6) & 0x7;
-    const u32 val = imm ? bits : ARM11_GetReg(ARM11, bits);
+    const u32 val = (imm ? bits : ARM11_GetReg(ARM11, bits));
     const u8 rn = (curinstr >> 3) & 0x7;
+    const u32 rnval = ARM11_GetReg(ARM11, rn);
     const u8 rd = curinstr & 0x7;
 
-    if (sub) ARM11_SUB_RSB(ARM11, rd, rn, val, true);
-    else ARM11_ADD(ARM11, rd, rn, val, true);
+    if (sub) ARM11_SUB_RSB(ARM11, rd, rnval, val, true);
+    else ARM11_ADD(ARM11, rd, rnval, val, true);
 }
 
 void THUMB11_ADD_SUB_CMP_MOV_Imm8(struct ARM11MPCore* ARM11)

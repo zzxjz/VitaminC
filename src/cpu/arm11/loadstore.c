@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "interpreter.h"
 #include "bus.h"
 

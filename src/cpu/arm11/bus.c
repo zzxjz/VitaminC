@@ -79,7 +79,7 @@ u32 Bus11_Load32(struct ARM11MPCore* ARM11, u32 addr)
 {
     ARM11_CP15_PageTable_Lookup(ARM11, &addr, TLB_Read);
 
-    if (addr & 0x3) printf("UNALIGNED LOAD32\n");
+    if (addr & 0x3) printf("UNALIGNED LOAD32 %08X %08X\n", addr, ARM11->PC);
 
     u8* val = Bus11_GetPtr(addr & ~0x3, BusAccess_32Bit);
     if (val) return *(u32*)val;
@@ -94,7 +94,7 @@ u16 Bus11_Load16(struct ARM11MPCore* ARM11, u32 addr)
 {
     ARM11_CP15_PageTable_Lookup(ARM11, &addr, TLB_Read);
 
-    if (addr & 0x1) printf("UNALIGNED LOAD16\n");
+    if (addr & 0x1) printf("UNALIGNED LOAD16 %08X %08X\n", addr, ARM11->PC);
 
     u8* val = Bus11_GetPtr(addr & ~0x1, BusAccess_16Bit);
     if (val) return *(u16*)val;
@@ -114,7 +114,7 @@ void Bus11_Store32(struct ARM11MPCore* ARM11, u32 addr, const u32 val)
 {
     ARM11_CP15_PageTable_Lookup(ARM11, &addr, 0);
 
-    if (addr & 0x3) printf("UNALIGNED STORE32\n");
+    if (addr & 0x3) printf("UNALIGNED STORE32 %08X %08X\n", addr, ARM11->PC);
 
     u32* ptr = (u32*)Bus11_GetPtr(addr & ~0x3, BusAccess_Store | BusAccess_32Bit);
     if (ptr) *ptr = val;
@@ -124,7 +124,7 @@ void Bus11_Store16(struct ARM11MPCore* ARM11, u32 addr, const u16 val)
 {
     ARM11_CP15_PageTable_Lookup(ARM11, &addr, 0);
 
-    if (addr & 0x1) printf("UNALIGNED STORE16\n");
+    if (addr & 0x1) printf("UNALIGNED STORE16 %08X %08X\n", addr, ARM11->PC);
 
     u16* ptr = (u16*)Bus11_GetPtr(addr & ~0x1, BusAccess_Store | BusAccess_16Bit);
     if (ptr) *ptr = val;

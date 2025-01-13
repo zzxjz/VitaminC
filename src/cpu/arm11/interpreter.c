@@ -350,7 +350,7 @@ void ARM11_Branch(struct ARM11MPCore* ARM11, u32 addr, const bool restore)
 {
 	if (addr != 0x00019220 &&
 		addr != 0x0001920C &&
-		addr != 0x00018084 &&
+		//addr != 0x00018084 &&
 		addr != 0x00014B45 &&
 		addr != 0x00012103)
 		printf("Jumping to %08X from %08X via %08X\n", addr, ARM11->PC, ARM11->Instr.Data);
