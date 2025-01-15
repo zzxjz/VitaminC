@@ -423,6 +423,19 @@ struct ARM11MPCore
 		u32 ThreadID[3];
 		u32 PerfMonitorControl;
 	} CP15;
+	union
+	{
+		u32 TimerControl;
+		struct
+		{
+			bool Enable;
+			bool AutoReload;
+			bool IntEnable;
+			u32 : 5;
+			u32 Prescaler : 8;
+		} Timer;
+		u8 TimerIRQStat;
+	};
 };
 
 extern void (*ARM11_InstrLUT[0x1000]) (struct ARM11MPCore* ARM11);

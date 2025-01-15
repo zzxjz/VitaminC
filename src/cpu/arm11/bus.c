@@ -8,7 +8,11 @@ u8* Bios11;
 const u32 Bios11_Size = 64 * 1024;
 
 // io
+
+// mpcore priv rgn io
 u32 SCUControlReg;
+
+
 
 
 u8* WRAM;
@@ -56,23 +60,210 @@ void Bus_Free()
     free(VRAM);
 }
 
-u32 Bus11_PageTableLoad32(const struct ARM11MPCore* ARM11, const u32 addr)
+u8 Bus11_Load8_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr)
 {
-    u8* val = Bus11_GetPtr(addr & ~3, BusAccess_32Bit);
-    if (val) return (ARM11->CP15.ExceptionEndian ? __builtin_bswap32(*(u32*)val) : *(u32*)val);
+    switch(addr & 0x1FFC)
+    {
+    case 0x0000: return SCUControlReg;
+        case 0x0001: return SCUControlReg>>8;
+        case 0x0002: return SCUControlReg>>16;
+        case 0x0003: return SCUControlReg>>24;
+    }
+
+    printf("UNK MPCORE PRIV RGN LOAD8: %08X %08X\n", addr, ARM11->PC);
     return 0;
+}
+
+u16 Bus11_Load16_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr)
+{
+    switch(addr & 0x1FFC)
+    {
+    case 0x0000: return SCUControlReg;
+        case 0x0002: return SCUControlReg>>16;
+    }
+
+    printf("UNK MPCORE PRIV RGN LOAD16: %08X %08X\n", addr, ARM11->PC);
+    return 0;
+}
+
+u32 Bus11_Load32_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr)
+{
+    switch(addr & 0x1FFC)
+    {
+    case 0x0000: return SCUControlReg;
+
+    case 0x0608: return ARM11->TimerControl;
+    case 0x060C: return ARM11->TimerIRQStat;
+    }
+
+    printf("UNK MPCORE PRIV RGN LOAD32: %08X %08X\n", addr, ARM11->PC);
+    return 0;
+}
+
+u8 Bus11_Load8_Main(struct ARM11MPCore* ARM11, const u32 addr)
+{
+    if ((addr < 0x20000) || (addr >= 0xFFFF0000))
+        return *(u8*)&Bios11[addr & (Bios11_Size-1)];
+
+    if ((addr & 0xFFFFE000) == 0x17E00000)
+        return Bus11_Load8_MPCorePriv(ARM11, addr);
+
+    if ((addr & 0xFFF00000) == 0x1FF00000)
+        return *(u8*)&WRAM[addr & (WRAM_Size-1)];
+    
+    if ((addr & 0xF8000000) == 0x20000000)
+        return *(u8*)&FCRAM[0][addr & (FCRAM_Size-1)];
+    if ((addr & 0xF8000000) == 0x28000000)
+        return *(u8*)&FCRAM[1][addr & (FCRAM_Size-1)];
+
+    printf("UNK LOAD8: %08X %08X\n", addr, ARM11->PC);
+    return 0;
+}
+
+u16 Bus11_Load16_Main(struct ARM11MPCore* ARM11, const u32 addr)
+{
+    if ((addr < 0x20000) || (addr >= 0xFFFF0000))
+        return *(u16*)&Bios11[addr & (Bios11_Size-1)];
+
+    if ((addr & 0xFFFFE000) == 0x17E00000)
+        return Bus11_Load16_MPCorePriv(ARM11, addr);
+
+    if ((addr & 0xFFF00000) == 0x1FF00000)
+        return *(u16*)&WRAM[addr & (WRAM_Size-1)];
+    
+    if ((addr & 0xF8000000) == 0x20000000)
+        return *(u16*)&FCRAM[0][addr & (FCRAM_Size-1)];
+    if ((addr & 0xF8000000) == 0x28000000)
+        return *(u16*)&FCRAM[1][addr & (FCRAM_Size-1)];
+
+    printf("UNK LOAD16: %08X %08X\n", addr, ARM11->PC);
+    return 0;
+}
+
+u32 Bus11_Load32_Main(struct ARM11MPCore* ARM11, const u32 addr)
+{
+    if ((addr < 0x20000) || (addr >= 0xFFFF0000))
+        return *(u32*)&Bios11[addr & (Bios11_Size-1)];
+
+    if ((addr & 0xFFFFE000) == 0x17E00000)
+        return Bus11_Load32_MPCorePriv(ARM11, addr);
+
+    if ((addr & 0xFFF00000) == 0x1FF00000)
+        return *(u32*)&WRAM[addr & (WRAM_Size-1)];
+    
+    if ((addr & 0xF8000000) == 0x20000000)
+        return *(u32*)&FCRAM[0][addr & (FCRAM_Size-1)];
+    if ((addr & 0xF8000000) == 0x28000000)
+        return *(u32*)&FCRAM[1][addr & (FCRAM_Size-1)];
+
+    printf("UNK LOAD32: %08X %08X\n", addr, ARM11->PC);
+    return 0;
+}
+
+void Bus11_Store8_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, const u8 val)
+{
+    switch(addr & 0x1FFF)
+    {
+    case 0x0000: SCUControlReg &= ~0xFF; SCUControlReg |= val; break;
+        case 0x0001: SCUControlReg &= ~0xFF00; SCUControlReg |= (val & 0x3F) << 8; break;
+        case 0x0002:
+        case 0x0003: break;
+    default: printf("UNK MPCORE PRIV RGN STORE8: %08X %08X\n", addr, ARM11->PC); break;
+    }
+}
+
+void Bus11_Store16_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, const u16 val)
+{
+    switch(addr & 0x1FFE)
+    {
+    case 0x0000: SCUControlReg &= ~0xFFFF; SCUControlReg |= val & 0x3FFF; break;
+        case 0x0002: break;
+    default: printf("UNK MPCORE PRIV RGN STORE16: %08X %08X\n", addr, ARM11->PC); break;
+    }
+}
+
+void Bus11_Store32_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, const u32 val)
+{
+    switch(addr & 0x1FFC)
+    {
+    case 0x0000: SCUControlReg = val & 0x3FFF; break;
+
+    case 0x0608: ARM11->TimerControl = val & 0xFF07; break;
+    case 0x060C: ARM11->TimerIRQStat &= ~val; break;
+    
+    default: printf("UNK MPCORE PRIV RGN STORE32: %08X %08X\n", addr, ARM11->PC); break;
+    }
+}
+
+void Bus11_Store8_Main(struct ARM11MPCore* ARM11, const u32 addr, const u8 val)
+{
+    if ((addr < 0x20000) || (addr >= 0xFFFF0000))
+        Bios11[addr & (Bios11_Size-1)] = val;
+
+    else if ((addr & 0xFFFFE000) == 0x17E00000)
+        Bus11_Store8_MPCorePriv(ARM11, addr, val);
+
+    else if ((addr & 0xFFF00000) == 0x1FF00000)
+        WRAM[addr & (WRAM_Size-1)] = val;
+    
+    else if ((addr & 0xF8000000) == 0x20000000)
+        FCRAM[0][addr & (FCRAM_Size-1)] = val;
+    else if ((addr & 0xF8000000) == 0x28000000)
+        FCRAM[1][addr & (FCRAM_Size-1)] = val;
+
+    else printf("UNK STORE8: %08X %08X\n", addr, ARM11->PC);
+}
+
+void Bus11_Store16_Main(struct ARM11MPCore* ARM11, const u32 addr, const u16 val)
+{
+    if ((addr < 0x20000) || (addr >= 0xFFFF0000))
+        *(u16*)&Bios11[addr & (Bios11_Size-1)] = val;
+
+    else if ((addr & 0xFFFFE000) == 0x17E00000)
+        Bus11_Store16_MPCorePriv(ARM11, addr, val);
+
+    else if ((addr & 0xFFF00000) == 0x1FF00000)
+        *(u16*)&WRAM[addr & (WRAM_Size-1)] = val;
+    
+    else if ((addr & 0xF8000000) == 0x20000000)
+        *(u16*)&FCRAM[0][addr & (FCRAM_Size-1)] = val;
+    else if ((addr & 0xF8000000) == 0x28000000)
+        *(u16*)&FCRAM[1][addr & (FCRAM_Size-1)] = val;
+
+    else printf("UNK STORE16: %08X %08X\n", addr, ARM11->PC);
+}
+
+void Bus11_Store32_Main(struct ARM11MPCore* ARM11, const u32 addr, const u32 val)
+{
+    if ((addr < 0x20000) || (addr >= 0xFFFF0000))
+        *(u32*)&Bios11[addr & (Bios11_Size-1)] = val;
+
+    else if ((addr & 0xFFFFE000) == 0x17E00000)
+        Bus11_Store32_MPCorePriv(ARM11, addr, val);
+
+    else if ((addr & 0xFFF00000) == 0x1FF00000)
+        *(u32*)&WRAM[addr & (WRAM_Size-1)] = val;
+    
+    else if ((addr & 0xF8000000) == 0x20000000)
+        *(u32*)&FCRAM[0][addr & (FCRAM_Size-1)] = val;
+    else if ((addr & 0xF8000000) == 0x28000000)
+        *(u32*)&FCRAM[1][addr & (FCRAM_Size-1)] = val;
+
+    else printf("UNK STORE32: %08X %08X\n", addr, ARM11->PC);
+}
+
+u32 Bus11_PageTableLoad32(struct ARM11MPCore* ARM11, u32 addr)
+{
+    u32 val = Bus11_Load32_Main(ARM11, addr & ~3);
+
+    return ARM11->CP15.ExceptionEndian ? __builtin_bswap32(val) : val;
 }
 
 u32 Bus11_InstrLoad32(struct ARM11MPCore* ARM11, u32 addr)
 {
     ARM11_CP15_PageTable_Lookup(ARM11, &addr, TLB_Instr | TLB_Read);
 
-    u8* val = Bus11_GetPtr(addr & ~0x3, BusAccess_32Bit);
-    if (val) return *(u32*)val;
-    printf("PC: %08X\n", ARM11->PC);
-    while(true)
-        ;
-    return 0;
+    return Bus11_Load32_Main(ARM11, addr & ~3);
 }
 
 u32 Bus11_Load32(struct ARM11MPCore* ARM11, u32 addr)
@@ -80,14 +271,9 @@ u32 Bus11_Load32(struct ARM11MPCore* ARM11, u32 addr)
     ARM11_CP15_PageTable_Lookup(ARM11, &addr, TLB_Read);
 
     if (addr & 0x3) printf("UNALIGNED LOAD32 %08X %08X\n", addr, ARM11->PC);
+    addr &= ~0x3;
 
-    u8* val = Bus11_GetPtr(addr & ~0x3, BusAccess_32Bit);
-    if (val) return *(u32*)val;
-    
-    printf("PC: %08X\n", ARM11->PC);
-    while(true)
-        ;
-    return 0;
+    return Bus11_Load32_Main(ARM11, addr);
 }
 
 u16 Bus11_Load16(struct ARM11MPCore* ARM11, u32 addr)
@@ -95,19 +281,16 @@ u16 Bus11_Load16(struct ARM11MPCore* ARM11, u32 addr)
     ARM11_CP15_PageTable_Lookup(ARM11, &addr, TLB_Read);
 
     if (addr & 0x1) printf("UNALIGNED LOAD16 %08X %08X\n", addr, ARM11->PC);
+    addr &= ~0x1;
 
-    u8* val = Bus11_GetPtr(addr & ~0x1, BusAccess_16Bit);
-    if (val) return *(u16*)val;
-    return 0;
+    return Bus11_Load16_Main(ARM11, addr);
 }
 
 u8 Bus11_Load8(struct ARM11MPCore* ARM11, u32 addr)
 {
     ARM11_CP15_PageTable_Lookup(ARM11, &addr, TLB_Read);
 
-    u8* val = Bus11_GetPtr(addr, BusAccess_8Bit);
-    if (val) return *(u8*)val;
-    return 0;
+    return Bus11_Load8_Main(ARM11, addr);
 }
 
 void Bus11_Store32(struct ARM11MPCore* ARM11, u32 addr, const u32 val)
@@ -115,9 +298,9 @@ void Bus11_Store32(struct ARM11MPCore* ARM11, u32 addr, const u32 val)
     ARM11_CP15_PageTable_Lookup(ARM11, &addr, 0);
 
     if (addr & 0x3) printf("UNALIGNED STORE32 %08X %08X\n", addr, ARM11->PC);
+    addr &= ~0x3;
 
-    u32* ptr = (u32*)Bus11_GetPtr(addr & ~0x3, BusAccess_Store | BusAccess_32Bit);
-    if (ptr) *ptr = val;
+    Bus11_Store32_Main(ARM11, addr, val);
 }
 
 void Bus11_Store16(struct ARM11MPCore* ARM11, u32 addr, const u16 val)
@@ -125,46 +308,14 @@ void Bus11_Store16(struct ARM11MPCore* ARM11, u32 addr, const u16 val)
     ARM11_CP15_PageTable_Lookup(ARM11, &addr, 0);
 
     if (addr & 0x1) printf("UNALIGNED STORE16 %08X %08X\n", addr, ARM11->PC);
+    addr &= ~0x1;
 
-    u16* ptr = (u16*)Bus11_GetPtr(addr & ~0x1, BusAccess_Store | BusAccess_16Bit);
-    if (ptr) *ptr = val;
+    Bus11_Store16_Main(ARM11, addr, val);
 }
 
 void Bus11_Store8(struct ARM11MPCore* ARM11, u32 addr, const u8 val)
 {
     ARM11_CP15_PageTable_Lookup(ARM11, &addr, 0);
 
-    u8* ptr = Bus11_GetPtr(addr, BusAccess_Store | BusAccess_8Bit);
-    if (ptr) *ptr = val;
-}
-
-u8* Bus11_GetPtr_MPCorePriv(const u32 addr, const u8 accesstype)
-{
-    switch(addr & 0x1FFC)
-    {
-    case 0x0000: return &(((u8*)&SCUControlReg)[addr & 0x3]);
-    }
-
-    printf("UNK MPCORE PRIV RGN ACCESS: %08X %X\n", addr, accesstype);
-    return NULL;
-}
-
-u8* Bus11_GetPtr(const u32 addr, const u8 accesstype)
-{
-    if (!(accesstype & BusAccess_Store) && ((addr < 0x20000) || (addr >= 0xFFFF0000)))
-        return &Bios11[addr & (Bios11_Size-1)];
-
-    if ((addr & 0xFFFFE000) == 0x17E00000)
-        return Bus11_GetPtr_MPCorePriv(addr, accesstype);
-
-    if ((addr & 0xFFF00000) == 0x1FF00000)
-        return &WRAM[addr & (WRAM_Size-1)];
-    
-    if ((addr & 0xF8000000) == 0x20000000)
-        return &FCRAM[0][addr & (FCRAM_Size-1)];
-    if ((addr & 0xF8000000) == 0x28000000)
-        return &FCRAM[1][addr & (FCRAM_Size-1)];
-
-    printf("UNK ACCESS: %08X %X\n", addr, accesstype);
-    return NULL;
+    Bus11_Store8_Main(ARM11, addr, val);
 }
