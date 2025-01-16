@@ -6,6 +6,7 @@
 extern u8* Bios11;
 extern u16 SCUControlReg;
 extern u8 IRQDistControl;
+extern u8 CFG11_SWRAM[2][8];
 
 enum
 {

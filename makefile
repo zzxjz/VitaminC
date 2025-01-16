@@ -2,7 +2,7 @@ OBJDIR := build/obj
 SRCDIR := src
 
 CC := clang
-CFLAGS := -O3 -std=c23 -march=native -flto -fwrapv -Wimplicit-fallthrough -Wall
+CFLAGS := -O3 -std=c23 -march=native -flto -fwrapv -Wimplicit-fallthrough -Wall -Wno-unused-variable
 
 DEPS := $(shell find $(SRC_DIR) -name '*.h')
 DEPS := $(patsubst $(SRCDIR)/%,$(SRCDIR)/%,$(DEPS))

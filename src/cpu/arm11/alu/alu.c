@@ -128,6 +128,7 @@ void ARM11_CMP(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 
     if (rd != 15)
     {
         ARM11->Carry = rn >= shifterout;
+        if (ARM11->PC == 0x134d8) printf("CARRRY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! %i %i\n", ARM11->Carry, rn >= shifterout);
         ARM11->Negative = aluout >> 31;
         ARM11->Overflow = ((rn ^ shifterout) & (aluout ^ rn)) >> 31;
         ARM11->Zero = !aluout;
@@ -338,8 +339,8 @@ void ARM11_ALU(struct ARM11MPCore* ARM11)
     {
     case 0:  ARM11_AND(ARM11, rd, rn, shifterout, s); break;
     case 1:  ARM11_EOR(ARM11, rd, rn, shifterout, s); break;
-    case 2:  ARM11_SUB_RSB(ARM11, rd, shifterout, rn, s); break;
-    case 3:  ARM11_SUB_RSB(ARM11, rd, rn, shifterout, s); break;
+    case 2:  ARM11_SUB_RSB(ARM11, rd, rn, shifterout, s); break;
+    case 3:  ARM11_SUB_RSB(ARM11, rd, shifterout, rn, s); break;
     case 4:  ARM11_ADD(ARM11, rd, rn, shifterout, s); break;
     case 5:  ARM11_ADC(ARM11, rd, rn, shifterout, s); break;
     case 6:  ARM11_SBC_RSC(ARM11, rd, rn, shifterout, s); break;

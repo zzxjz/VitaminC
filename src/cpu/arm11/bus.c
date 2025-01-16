@@ -1,3 +1,4 @@
+#include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "interpreter.h"
@@ -9,6 +10,7 @@ u8* Bios11;
 const u32 Bios11_Size = 64 * 1024;
 
 // io
+u8 CFG11_SWRAM[2][8];
 
 // mpcore priv rgn io
 u16 SCUControlReg;
@@ -36,6 +38,9 @@ char* Bus11_Init()
 
     SCUControlReg = 0x1FFE;
     IRQDistControl = 0;
+    memset(CFG11_SWRAM, 0, sizeof(CFG11_SWRAM));
+    memset(IRQPriority, 0, sizeof(IRQPriority));
+    memset(IRQTarget, 0, sizeof(IRQTarget));
 
     return NULL;
 }
@@ -181,11 +186,18 @@ u8 Bus11_Load8_Main(struct ARM11MPCore* ARM11, const u32 addr)
     if ((addr & 0xFFFFE000) == 0x17E00000)
         return Bus11_Load8_MPCorePriv(ARM11, addr);
 
-    else if ((addr >= 0x18000000) && (addr < 0x18600000))
+    if ((addr >= 0x18000000) && (addr < 0x18600000))
         return VRAM[addr - 0x18000000];
 
-    if ((addr & 0xFFF00000) == 0x1FF00000)
-        return WRAM[addr & (WRAM_Size-1)];
+    if ((addr & 0xFFF80000) == 0x1FF00000)
+    {
+        u8* bank = GetSWRAM(addr);
+        if (bank) return bank[addr&(SWRAM_Size-1)];
+        else { printf("ACCESSING UNALLOCATED SWRAM "); }
+    }
+
+    if ((addr & 0xFFF80000) == 0x1FF80000)
+        return AXI_WRAM[addr & (AXI_WRAM_Size-1)];
     
     if ((addr & 0xF8000000) == 0x20000000)
         return FCRAM[0][addr & (FCRAM_Size-1)];
@@ -204,11 +216,18 @@ u16 Bus11_Load16_Main(struct ARM11MPCore* ARM11, const u32 addr)
     if ((addr & 0xFFFFE000) == 0x17E00000)
         return Bus11_Load16_MPCorePriv(ARM11, addr);
 
-    else if ((addr >= 0x18000000) && (addr < 0x18600000))
+    if ((addr >= 0x18000000) && (addr < 0x18600000))
         return *(u16*)&VRAM[addr - 0x18000000];
 
-    if ((addr & 0xFFF00000) == 0x1FF00000)
-        return *(u16*)&WRAM[addr & (WRAM_Size-1)];
+    if ((addr & 0xFFF80000) == 0x1FF00000)
+    {
+        u8* bank = GetSWRAM(addr);
+        if (bank) return *(u16*)&bank[addr&(SWRAM_Size-1)];
+        else { printf("ACCESSING UNALLOCATED SWRAM "); }
+    }
+
+    if ((addr & 0xFFF80000) == 0x1FF80000)
+        return *(u16*)&AXI_WRAM[addr & (AXI_WRAM_Size-1)];
     
     if ((addr & 0xF8000000) == 0x20000000)
         return *(u16*)&FCRAM[0][addr & (FCRAM_Size-1)];
@@ -227,11 +246,18 @@ u32 Bus11_Load32_Main(struct ARM11MPCore* ARM11, const u32 addr)
     if ((addr & 0xFFFFE000) == 0x17E00000)
         return Bus11_Load32_MPCorePriv(ARM11, addr);
 
-    else if ((addr >= 0x18000000) && (addr < 0x18600000))
+    if ((addr >= 0x18000000) && (addr < 0x18600000))
         return *(u32*)&VRAM[addr - 0x18000000];
 
-    if ((addr & 0xFFF00000) == 0x1FF00000)
-        return *(u32*)&WRAM[addr & (WRAM_Size-1)];
+    if ((addr & 0xFFF80000) == 0x1FF00000)
+    {
+        u8* bank = GetSWRAM(addr);
+        if (bank) return *(u32*)&bank[addr&(SWRAM_Size-1)];
+        else { printf("ACCESSING UNALLOCATED SWRAM "); }
+    }
+
+    if ((addr & 0xFFF80000) == 0x1FF80000)
+        return *(u32*)&AXI_WRAM[addr & (AXI_WRAM_Size-1)];
     
     if ((addr & 0xF8000000) == 0x20000000)
         return *(u32*)&FCRAM[0][addr & (FCRAM_Size-1)];
@@ -242,6 +268,15 @@ u32 Bus11_Load32_Main(struct ARM11MPCore* ARM11, const u32 addr)
     while (true)
         ;
     return 0;
+}
+
+void Bus11_Store8_IO(struct ARM11MPCore* ARM11, const u32 addr, const u8 val)
+{
+    switch(addr)
+    {
+        case 0x10140000 ... 0x1014000F: MapSWRAM(addr & 0x8, addr & 0x7, val); break;
+        default: printf("UNK IO STORE8 %08X %08X %08X\n", addr, val, ARM11->PC); break;
+    }
 }
 
 void Bus11_Store8_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, const u8 val)
@@ -470,14 +505,24 @@ void Bus11_Store8_Main(struct ARM11MPCore* ARM11, const u32 addr, const u8 val)
     if ((addr < 0x20000) || (addr >= 0xFFFF0000))
         Bios11[addr & (Bios11_Size-1)] = val;
 
+    else if ((addr >= 0x10100000) && addr < 0x17E00000) // checkme?
+        Bus11_Store8_IO(ARM11, addr, val);
+
     else if ((addr & 0xFFFFE000) == 0x17E00000)
         Bus11_Store8_MPCorePriv(ARM11, addr, val);
 
     else if ((addr >= 0x18000000) && (addr < 0x18600000))
         VRAM[addr - 0x18000000] = val;
 
-    else if ((addr & 0xFFF00000) == 0x1FF00000)
-        WRAM[addr & (WRAM_Size-1)] = val;
+    if ((addr & 0xFFF80000) == 0x1FF00000)
+    {
+        u8* bank = GetSWRAM(addr);
+        if (bank) bank[addr&(SWRAM_Size-1)] = val;
+        else { printf("UNALLOCATED SWRAM STORE8!! %08X %08X %08X", addr, val, ARM11->PC); }
+    }
+
+    else if ((addr & 0xFFF80000) == 0x1FF80000)
+        AXI_WRAM[addr & (AXI_WRAM_Size-1)] = val;
     
     else if ((addr & 0xF8000000) == 0x20000000)
         FCRAM[0][addr & (FCRAM_Size-1)] = val;
@@ -498,8 +543,15 @@ void Bus11_Store16_Main(struct ARM11MPCore* ARM11, const u32 addr, const u16 val
     else if ((addr >= 0x18000000) && (addr < 0x18600000))
         *(u16*)&VRAM[addr - 0x18000000] = val;
 
-    else if ((addr & 0xFFF00000) == 0x1FF00000)
-        *(u16*)&WRAM[addr & (WRAM_Size-1)] = val;
+    if ((addr & 0xFFF80000) == 0x1FF00000)
+    {
+        u8* bank = GetSWRAM(addr);
+        if (bank) *(u16*)&bank[addr&(SWRAM_Size-1)] = val;
+        else { printf("UNALLOCATED SWRAM STORE16!! %08X %08X %08X", addr, val, ARM11->PC); }
+    }
+
+    else if ((addr & 0xFFF80000) == 0x1FF80000)
+        *(u16*)&AXI_WRAM[addr & (AXI_WRAM_Size-1)] = val;
     
     else if ((addr & 0xF8000000) == 0x20000000)
         *(u16*)&FCRAM[0][addr & (FCRAM_Size-1)] = val;
@@ -520,8 +572,15 @@ void Bus11_Store32_Main(struct ARM11MPCore* ARM11, const u32 addr, const u32 val
     else if ((addr >= 0x18000000) && (addr < 0x18600000))
         *(u32*)&VRAM[addr - 0x18000000] = val;
 
-    else if ((addr & 0xFFF00000) == 0x1FF00000)
-        *(u32*)&WRAM[addr & (WRAM_Size-1)] = val;
+    if ((addr & 0xFFF80000) == 0x1FF00000)
+    {
+        u8* bank = GetSWRAM(addr);
+        if (bank) *(u32*)&bank[addr&(SWRAM_Size-1)] = val;
+        else { printf("UNALLOCATED SWRAM STORE32!! %08X %08X %08X", addr, val, ARM11->PC); }
+    }
+
+    else if ((addr & 0xFFF80000) == 0x1FF80000)
+        *(u32*)&AXI_WRAM[addr & (AXI_WRAM_Size-1)] = val;
     
     else if ((addr & 0xF8000000) == 0x20000000)
         *(u32*)&FCRAM[0][addr & (FCRAM_Size-1)] = val;
