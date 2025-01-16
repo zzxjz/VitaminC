@@ -31,13 +31,13 @@ int main()
     while (true)
     {
         //printf("CPU0 TIME!\n");
-        ARM11_RunInterpreter(&ARM11[0], target);
+        ARM11_RunInterpreter(&_ARM11[0], target);
         /*printf("CPU1 TIME!\n");
-        ARM11_RunInterpreter(&ARM11[1], target);
+        ARM11_RunInterpreter(&_ARM11[1], target);
         printf("CPU2 TIME!\n");
-        ARM11_RunInterpreter(&ARM11[2], target);
+        ARM11_RunInterpreter(&_ARM11[2], target);
         printf("CPU3 TIME!\n");
-        ARM11_RunInterpreter(&ARM11[3], target);
+        ARM11_RunInterpreter(&_ARM11[3], target);
         */target += 8;
     }
 

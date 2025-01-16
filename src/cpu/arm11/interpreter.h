@@ -423,25 +423,48 @@ struct ARM11MPCore
 		u32 ThreadID[3];
 		u32 PerfMonitorControl;
 	} CP15;
-	union
+	struct
 	{
-		u32 TimerControl;
-		struct
+		u8 IRQControl;
+
+		union
 		{
-			bool Enable;
-			bool AutoReload;
-			bool IntEnable;
-			u32 : 5;
-			u32 Prescaler : 8;
-		} Timer;
+			u16 TimerControl;
+			struct
+			{
+				bool Enable : 1;
+				bool AutoReload : 1;
+				bool IRQEnable : 1;
+				u16 : 5;
+				u16 Prescaler : 8;
+			} Timer;
+		};
 		u8 TimerIRQStat;
-	};
+		union
+		{
+			u16 WatchdogControl;
+			struct
+			{
+				bool Enable : 1;
+				bool AutoReload : 1;
+				bool IRQEnable : 1;
+				bool WatchdogMode : 1;
+				u16 : 4;
+				u16 Prescaler : 8;
+			} Watchdog;
+		};
+		u8 WatchdogIRQStat;
+		u8 WatchdogResetStat;
+		u32 WatchdogDisable;
+
+		u8 IRQPriority[20];
+	} PrivRgn;
 };
 
 extern void (*ARM11_InstrLUT[0x1000]) (struct ARM11MPCore* ARM11);
 extern void (*THUMB11_InstrLUT[0x40]) (struct ARM11MPCore* ARM11);
 
-extern struct ARM11MPCore ARM11[4];
+extern struct ARM11MPCore _ARM11[4];
 
 void* ARM11_InitARMInstrLUT(const u16 bits);
 void* ARM11_InitTHUMBInstrLUT(const u8 bits);

@@ -4,7 +4,8 @@
 #include "interpreter.h"
 
 extern u8* Bios11;
-extern u32 SCUControlReg;
+extern u16 SCUControlReg;
+extern u8 IRQDistControl;
 
 extern u8* WRAM;
 extern u8* FCRAM[2];

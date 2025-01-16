@@ -150,21 +150,21 @@ void* DecodeUncondInstr(const u32 bits)
 alignas(64) void (*ARM11_InstrLUT[0x1000]) (struct ARM11MPCore* ARM11);
 alignas(64) void (*THUMB11_InstrLUT[0x40]) (struct ARM11MPCore* ARM11);
 
-struct ARM11MPCore ARM11[4];
+struct ARM11MPCore _ARM11[4];
 
 char* ARM11_Init()
 {
-	memset(ARM11, 0, sizeof(ARM11));
+	memset(_ARM11, 0, sizeof(_ARM11));
 	for (int i = 0; i < 4; i++)
 	{
-		ARM11[i].NextStep = ARM11_StartFetch;
-		ARM11_Branch(&ARM11[i], 0, false);
-		ARM11[i].Mode = MODE_SVC;
-		ARM11->SPSR = &ARM11->SVC.SPSR;
-		ARM11[i].CP15.Control = 0x00054078;
-		ARM11[i].CP15.AuxControl = 0x0F;
-		ARM11[i].CP15.DCacheLockdown = 0xFFFFFFF0;
-		ARM11[i].CPUID = i;
+		_ARM11[i].NextStep = ARM11_StartFetch;
+		ARM11_Branch(&_ARM11[i], 0, false);
+		_ARM11[i].Mode = MODE_SVC;
+		_ARM11[i].SPSR = &_ARM11[i].SVC.SPSR;
+		_ARM11[i].CP15.Control = 0x00054078;
+		_ARM11[i].CP15.AuxControl = 0x0F;
+		_ARM11[i].CP15.DCacheLockdown = 0xFFFFFFF0;
+		_ARM11[i].CPUID = i;
 	}
 	return NULL;
 }
