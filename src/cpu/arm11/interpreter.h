@@ -458,6 +458,7 @@ struct ARM11MPCore
 		u32 WatchdogDisable;
 
 		u8 IRQPriority[20];
+		u8 IRQConfig[60];
 	} PrivRgn;
 };
 
@@ -496,6 +497,7 @@ void THUMB11_ADD_SUB_SP(struct ARM11MPCore* ARM11);
 
 void ARM11_LDR_STR(struct ARM11MPCore* ARM11);
 void ARM11_LDM_STM(struct ARM11MPCore* ARM11);
+void ARM11_PLD(struct ARM11MPCore* ARM11);
 void THUMB11_LDRPCRel(struct ARM11MPCore* ARM11);
 void THUMB11_LDR_STR_SPRel(struct ARM11MPCore* ARM11);
 void THUMB11_LDR_STR_Reg(struct ARM11MPCore* ARM11);

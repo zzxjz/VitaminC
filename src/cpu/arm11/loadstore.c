@@ -139,6 +139,11 @@ void ARM11_LDM_STM(struct ARM11MPCore* ARM11)
     }
 }
 
+void ARM11_PLD(struct ARM11MPCore* ARM11)
+{
+    // TODO: no
+}
+
 void THUMB11_LDRPCRel(struct ARM11MPCore* ARM11)
 {
     const u16 curinstr = ARM11->Instr.Data;

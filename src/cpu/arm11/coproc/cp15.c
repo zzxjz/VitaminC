@@ -595,7 +595,7 @@ void ARM11_CP15_Store_Single(struct ARM11MPCore* ARM11, u16 cmd, u32 val)
 
 u32 ARM11_CP15_Load_Single(struct ARM11MPCore* ARM11, u16 cmd)
 {
-    if ((ARM11->Mode == MODE_USR) && ((cmd != 0x0D02) || (cmd != 0x0D01))) { printf("CP15 USERMODE READ: CMD: %04X\n", cmd); return 0; }
+    if ((ARM11->Mode == MODE_USR) && ((cmd != 0x0D02) && (cmd != 0x0D01))) { printf("CP15 USERMODE READ: CMD: %04X\n", cmd); return 0; }
 
     switch(cmd)
     {

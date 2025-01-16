@@ -3,6 +3,7 @@
 #include "interpreter.h"
 #include "../../utils.h"
 #include "bus.h"
+#include "../shared/bus.h"
 
 u8* Bios11;
 const u32 Bios11_Size = 64 * 1024;
@@ -15,19 +16,7 @@ u8 IRQDistControl;
 u8 IRQPriority[224];
 u8 IRQTarget[224];
 
-
-
-
-u8* WRAM;
-const u32 WRAM_Size = 1 * 1024 * 1024;
-
-u8* FCRAM[2];
-const u32 FCRAM_Size = 128 * 1024 * 1024;
-
-u8* VRAM;
-const u32 VRAM_Size = 6 * 1024 * 1024;
-
-char* Bus_Init()
+char* Bus11_Init()
 {
     Bios11 = malloc(Bios11_Size);
     FILE* file = fopen("bios_ctr11.bin", "rb");
@@ -45,23 +34,15 @@ char* Bus_Init()
         return "bios_ctr11.bin not found.";
     }
 
-    WRAM = calloc(1, WRAM_Size);
-    FCRAM[0] = calloc(1, FCRAM_Size);
-    FCRAM[1] = calloc(1, FCRAM_Size);
-    VRAM = calloc(1, VRAM_Size);
-
     SCUControlReg = 0x1FFE;
     IRQDistControl = 0;
+
     return NULL;
 }
 
-void Bus_Free()
+void Bus11_Free()
 {
     free(Bios11);
-    free(WRAM);
-    free(FCRAM[0]);
-    free(FCRAM[1]);
-    free(VRAM);
 }
 
 u8 Bus11_Load8_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr)
@@ -124,6 +105,7 @@ u32 Bus11_Load32_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr)
 
 
     case 0x0100: return ARM11->PrivRgn.IRQControl;
+    case 0x010C: return 0x3FF;
 
     case 0x0200: if ((SCUControlReg >> (5 + ARM11->CPUID)) & 0x1) { return _ARM11[0].PrivRgn.IRQControl; } else return 0;
 
@@ -194,18 +176,21 @@ u32 Bus11_Load32_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr)
 u8 Bus11_Load8_Main(struct ARM11MPCore* ARM11, const u32 addr)
 {
     if ((addr < 0x20000) || (addr >= 0xFFFF0000))
-        return *(u8*)&Bios11[addr & (Bios11_Size-1)];
+        return Bios11[addr & (Bios11_Size-1)];
 
     if ((addr & 0xFFFFE000) == 0x17E00000)
         return Bus11_Load8_MPCorePriv(ARM11, addr);
 
+    else if ((addr >= 0x18000000) && (addr < 0x18600000))
+        return VRAM[addr - 0x18000000];
+
     if ((addr & 0xFFF00000) == 0x1FF00000)
-        return *(u8*)&WRAM[addr & (WRAM_Size-1)];
+        return WRAM[addr & (WRAM_Size-1)];
     
     if ((addr & 0xF8000000) == 0x20000000)
-        return *(u8*)&FCRAM[0][addr & (FCRAM_Size-1)];
+        return FCRAM[0][addr & (FCRAM_Size-1)];
     if ((addr & 0xF8000000) == 0x28000000)
-        return *(u8*)&FCRAM[1][addr & (FCRAM_Size-1)];
+        return FCRAM[1][addr & (FCRAM_Size-1)];
 
     printf("UNK LOAD8: %08X %08X\n", addr, ARM11->PC);
     return 0;
@@ -218,6 +203,9 @@ u16 Bus11_Load16_Main(struct ARM11MPCore* ARM11, const u32 addr)
 
     if ((addr & 0xFFFFE000) == 0x17E00000)
         return Bus11_Load16_MPCorePriv(ARM11, addr);
+
+    else if ((addr >= 0x18000000) && (addr < 0x18600000))
+        return *(u16*)&VRAM[addr - 0x18000000];
 
     if ((addr & 0xFFF00000) == 0x1FF00000)
         return *(u16*)&WRAM[addr & (WRAM_Size-1)];
@@ -239,6 +227,9 @@ u32 Bus11_Load32_Main(struct ARM11MPCore* ARM11, const u32 addr)
     if ((addr & 0xFFFFE000) == 0x17E00000)
         return Bus11_Load32_MPCorePriv(ARM11, addr);
 
+    else if ((addr >= 0x18000000) && (addr < 0x18600000))
+        return *(u32*)&VRAM[addr - 0x18000000];
+
     if ((addr & 0xFFF00000) == 0x1FF00000)
         return *(u32*)&WRAM[addr & (WRAM_Size-1)];
     
@@ -248,6 +239,8 @@ u32 Bus11_Load32_Main(struct ARM11MPCore* ARM11, const u32 addr)
         return *(u32*)&FCRAM[1][addr & (FCRAM_Size-1)];
 
     printf("UNK LOAD32: %08X %08X\n", addr, ARM11->PC);
+    while (true)
+        ;
     return 0;
 }
 
@@ -273,11 +266,16 @@ void Bus11_Store8_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, const u8
     case 0x141D: ARM11->PrivRgn.IRQPriority[17] = val & 0xF0; break;
     case 0x141E: ARM11->PrivRgn.IRQPriority[18] = val & 0xF0; break;
     case 0x141F: ARM11->PrivRgn.IRQPriority[19] = val & 0xF0; break;
-    case 0x1800 ... 0x181F: break;
     case 0x1420 ... 0x14FF: IRQPriority[(addr & 0xFF) - 0x20] = val & 0xF0; break;
+
+    case 0x1800 ... 0x181F: break;
     case 0x1820 ... 0x18FF:
         IRQTarget[(addr & 0xFF) - 0x20] = val & 0x0F;
         break;
+
+    case 0x1C00 ... 0x1C03: ARM11->PrivRgn.IRQConfig[addr & 0x3] = val | 0xAA; break;
+    case 0x1C04 ... 0x1C07: break;
+    case 0x1C08 ... 0x1C3F: ARM11->PrivRgn.IRQConfig[(addr & 0x3C) - 4] = val; break;
 
     default: printf("UNK MPCORE PRIV RGN STORE8: %08X %08X %08X\n", addr, val, ARM11->PC); break;
     }
@@ -316,11 +314,27 @@ void Bus11_Store16_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, u16 val
         IRQPriority[(addr & 0xFE) - 0x20] = val;
         IRQPriority[(addr & 0xFE) - 0x1F] = val >> 8;
         break;
+
     case 0x1800 ... 0x181F: break;
     case 0x1820 ... 0x18FE:
         val &= 0x0F0F;
         IRQTarget[(addr & 0xFE) - 0x20] = val;
         IRQTarget[(addr & 0xFE) - 0x1F] = val >> 8;
+        break;
+
+    case 0x1C00:
+        ARM11->PrivRgn.IRQConfig[0] = val | 0xAA;
+        ARM11->PrivRgn.IRQConfig[1] = (val>>8) | 0xAA;
+        break;
+    case 0x1C02:
+        ARM11->PrivRgn.IRQConfig[2] = val | 0xAA;
+        ARM11->PrivRgn.IRQConfig[3] = (val>>8) | 0xAA;
+        break;
+    case 0x1C04:
+    case 0x1C06: break;
+    case 0x1C08 ... 0x1C3E:
+        ARM11->PrivRgn.IRQConfig[(addr & 0x3C) - 4] = val;
+        ARM11->PrivRgn.IRQConfig[(addr & 0x3C) - 3] = val >> 8;
         break;
 
     default: printf("UNK MPCORE PRIV RGN STORE16: %08X %08X %08X\n", addr, val, ARM11->PC); break;
@@ -423,6 +437,7 @@ void Bus11_Store32_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, u32 val
         IRQPriority[(addr & 0xFC) - 0x1E] = val >> 16;
         IRQPriority[(addr & 0xFC) - 0x1D] = val >> 24;
         break;
+
     case 0x1800 ... 0x181F: break;
     case 0x1820 ... 0x18FC:
         val &= 0x0F0F0F0F;
@@ -432,6 +447,19 @@ void Bus11_Store32_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, u32 val
         IRQTarget[(addr & 0xFC) - 0x1D] = val >> 24;
         break;
 
+    case 0x1C00:
+        ARM11->PrivRgn.IRQConfig[0] = val | 0xAA;
+        ARM11->PrivRgn.IRQConfig[1] = (val>>8) | 0xAA;
+        ARM11->PrivRgn.IRQConfig[2] = (val>>16) | 0xAA;
+        ARM11->PrivRgn.IRQConfig[3] = (val>>24) | 0xAA;
+        break;
+    case 0x1C04: break;
+    case 0x1C08 ... 0x1C3C:
+        ARM11->PrivRgn.IRQConfig[(addr & 0x3C) - 4] = val;
+        ARM11->PrivRgn.IRQConfig[(addr & 0x3C) - 3] = val >> 8;
+        ARM11->PrivRgn.IRQConfig[(addr & 0x3C) - 2] = val >> 16;
+        ARM11->PrivRgn.IRQConfig[(addr & 0x3C) - 1] = val >> 24;
+        break;
 
     default: printf("UNK MPCORE PRIV RGN STORE32: %08X %08X %08X\n", addr, val, ARM11->PC); break;
     }
@@ -444,6 +472,9 @@ void Bus11_Store8_Main(struct ARM11MPCore* ARM11, const u32 addr, const u8 val)
 
     else if ((addr & 0xFFFFE000) == 0x17E00000)
         Bus11_Store8_MPCorePriv(ARM11, addr, val);
+
+    else if ((addr >= 0x18000000) && (addr < 0x18600000))
+        VRAM[addr - 0x18000000] = val;
 
     else if ((addr & 0xFFF00000) == 0x1FF00000)
         WRAM[addr & (WRAM_Size-1)] = val;
@@ -464,6 +495,9 @@ void Bus11_Store16_Main(struct ARM11MPCore* ARM11, const u32 addr, const u16 val
     else if ((addr & 0xFFFFE000) == 0x17E00000)
         Bus11_Store16_MPCorePriv(ARM11, addr, val);
 
+    else if ((addr >= 0x18000000) && (addr < 0x18600000))
+        *(u16*)&VRAM[addr - 0x18000000] = val;
+
     else if ((addr & 0xFFF00000) == 0x1FF00000)
         *(u16*)&WRAM[addr & (WRAM_Size-1)] = val;
     
@@ -482,6 +516,9 @@ void Bus11_Store32_Main(struct ARM11MPCore* ARM11, const u32 addr, const u32 val
 
     else if ((addr & 0xFFFFE000) == 0x17E00000)
         Bus11_Store32_MPCorePriv(ARM11, addr, val);
+
+    else if ((addr >= 0x18000000) && (addr < 0x18600000))
+        *(u32*)&VRAM[addr - 0x18000000] = val;
 
     else if ((addr & 0xFFF00000) == 0x1FF00000)
         *(u32*)&WRAM[addr & (WRAM_Size-1)] = val;

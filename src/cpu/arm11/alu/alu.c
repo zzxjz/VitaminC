@@ -525,10 +525,9 @@ void THUMB11_ADD_SUB_SP(struct ARM11MPCore* ARM11)
     s8 imm7 = curinstr & 0x7F;
     const bool sub = curinstr & (1<<7);
 
-
     if (sub) imm7 = -imm7;
 
     u32 spval = ARM11_GetReg(ARM11, 13);
-    spval += imm7;
+    spval += imm7 * 4;
     ARM11_WriteReg(ARM11, 13, spval, false, false);
 }

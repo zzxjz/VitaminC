@@ -1,23 +1,22 @@
-ODIR=build/obj
-SDIR=src
+OBJDIR := build/obj
+SRCDIR := src
 
-CC=clang
-CFLAGS= -O3 -std=c23 -march=native -flto -fwrapv -Wimplicit-fallthrough
+CC := clang
+CFLAGS := -O3 -std=c23 -march=native -flto -fwrapv -Wimplicit-fallthrough -Wall
 
-_DEPS = main.h cpu/arm11/interpreter.h cpu/arm11/bus.h utils.h
-DEPS = $(patsubst %,$(SDIR)/%,$(_DEPS))
+DEPS := $(shell find $(SRC_DIR) -name '*.h')
+DEPS := $(patsubst $(SRCDIR)/%,$(SRCDIR)/%,$(DEPS))
 
-_OBJ = main.o cpu/arm11/interpreter.o cpu/arm11/bus.o cpu/arm11/alu/alu.o cpu/arm11/loadstore.o cpu/arm11/branch.o cpu/arm11/coproc/coproc.o cpu/arm11/coproc/cp15.o
-OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
+OBJS := $(shell find $(SRCDIR) -name '*.c')
+OBJS := $(patsubst $(SRCDIR)/%,$(OBJDIR)/%,$(OBJS:.c=.o))
 
-$(ODIR)/%.o: $(SDIR)/%.c $(DEPS)
+$(OBJDIR)/%.o: $(SRCDIR)/%.c $(DEPS)
 	@mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-VitaminC: $(OBJ)
+VitaminC: $(OBJS)
 	$(CC) -o $@ $^ $(CFLAGS)
 
 .PHONY: clean
 clean:
 	@rm -rf build VitaminC
-

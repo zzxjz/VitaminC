@@ -7,10 +7,6 @@ extern u8* Bios11;
 extern u16 SCUControlReg;
 extern u8 IRQDistControl;
 
-extern u8* WRAM;
-extern u8* FCRAM[2];
-extern u8* VRAM;
-
 enum
 {
     BusAccess_8Bit  = 0x01,
@@ -19,8 +15,8 @@ enum
     BusAccess_Store = 0x10,
 };
 
-char* Bus_Init();
-void Bus_Free();
+char* Bus11_Init();
+void Bus11_Free();
 
 u32 Bus11_PageTableLoad32(struct ARM11MPCore* ARM11, const u32 addr);
 u32 Bus11_InstrLoad32(struct ARM11MPCore* ARM11, u32 addr);

@@ -135,7 +135,7 @@ void* DecodeUncondInstr(const u32 bits)
 {
 	CHECK(0001000000000000000000000000, 1111111100010000000000100000, NULL) // cps
 	CHECK(0001000000010000000000000000, 1111111111110000000011110000, NULL) // setend
-	CHECK(0101010100001111000000000000, 1101011100001111000000000000, NULL) // pld
+	CHECK(0101010100001111000000000000, 1101011100001111000000000000, ARM11_PLD) // pld
 	CHECK(1000010011010000010100000000, 1110010111110000111100000000, NULL) // srs
 	CHECK(1000000100000000101000000000, 1110010100000000111100000000, NULL) // rfe
 	CHECK(1010000000000000000000000000, 1110000000000000000000000000, NULL) // blx (imm)
@@ -165,6 +165,10 @@ char* ARM11_Init()
 		_ARM11[i].CP15.AuxControl = 0x0F;
 		_ARM11[i].CP15.DCacheLockdown = 0xFFFFFFF0;
 		_ARM11[i].CPUID = i;
+        _ARM11[i].PrivRgn.IRQConfig[0] = 0xAA;
+        _ARM11[i].PrivRgn.IRQConfig[1] = 0xAA;
+        _ARM11[i].PrivRgn.IRQConfig[2] = 0xAA;
+        _ARM11[i].PrivRgn.IRQConfig[3] = 0xAA;
 	}
 	return NULL;
 }
@@ -439,16 +443,21 @@ void ARM11_StartExec(struct ARM11MPCore* ARM11)
 			while (true)
 				;
 		}
+		//if (ARM11->SP & 0x3) { printf("MISALIGNMENT!! %08X\n", ARM11->Instr.Data); while (true); }
 		//for (int i = 0; i < 16; i++) printf("%i, %08X ", i, ARM11->R[i]);
 		//printf("\n");
 	}
 	else if (condcode == COND_NV) // do special handling for unconditional instructions
 	{
-		printf("UNCOND: %08X!!!!\n", ARM11->Instr.Data);
-		for (int i = 0; i < 16; i++) printf("%i, %08X ", i, ARM11->R[i]);
-		while (true)
-			;
-		//DecodeUncondInstr(instr);
+		void (*func)(struct ARM11MPCore*) = DecodeUncondInstr(instr);
+		if (func) func(ARM11);
+		else
+		{
+			printf("UNCOND: %08X!!!!\n", ARM11->Instr.Data);
+			for (int i = 0; i < 16; i++) printf("%i, %08X ", i, ARM11->R[i]);
+			while (true)
+				;
+		}
 	}
 	else if (false) // TODO: handle illegal BKPTs? might still execute regardless of condition fail like the ARM9?
 	{
@@ -474,6 +483,7 @@ void THUMB11_StartExec(struct ARM11MPCore* ARM11)
 		while(true)
 			;
 	}
+	//if (ARM11->SP & 0x3) { printf("MISALIGNMENT!! %04X @ %08X\n", ARM11->Instr.Data & 0xFFFF, ARM11->PC); while (true); }
 }
 
 void ARM11_RunInterpreter(struct ARM11MPCore* ARM11, u64 target)

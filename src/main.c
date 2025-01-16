@@ -1,7 +1,7 @@
 #include <stdio.h>
 //#include "main.h"
 #include "cpu/arm11/interpreter.h"
-#include "cpu/arm11/bus.h"
+#include "cpu/shared/bus.h"
 
 char* Emu_Init()
 {

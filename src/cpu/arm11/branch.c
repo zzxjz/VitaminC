@@ -51,7 +51,7 @@ void THUMB11_B(struct ARM11MPCore* ARM11)
 {
     const u16 curinstr = ARM11->Instr.Data;
 
-    s32 offset = ((s16)curinstr << 5) >> 4;
+    s32 offset = (s16)(curinstr << 5) >> 4;
     u32 addr = ARM11_GetReg(ARM11, 15) + offset;
     ARM11_Branch(ARM11, addr | 1, false);
 }
