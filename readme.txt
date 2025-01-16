@@ -3,10 +3,9 @@ VitaminC is a fully LLE (new)3DS emulator that targets extremely high accuracy!
 haven't quite gotten there yet...
 
 building:
-1. enter /VitaminC/
-2. meticulously recreate the folder structure of src in a new folder called build.
-3. submit pr to fix the dogshit makefile to do that automatically
-4. type "make"
+1. enter VitaminC directory
+2. type "make" into terminal
+3. profit
 
 tested to work on linux
 probably works on every platform there's like no platform specific code
