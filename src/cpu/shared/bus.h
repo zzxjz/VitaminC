@@ -9,6 +9,8 @@ extern const u32 FCRAM_Size;
 extern u8* VRAM;
 extern const u32 VRAM_Size;
 
+extern const u8 SOCInfo;
+
 char* Bus_Init();
 void Bus_Free();
 

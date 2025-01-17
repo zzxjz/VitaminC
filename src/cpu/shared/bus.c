@@ -17,6 +17,8 @@ const u32 FCRAM_Size = 128 * 1024 * 1024;
 u8* VRAM;
 const u32 VRAM_Size = 6 * 1024 * 1024;
 
+const u8 SOCInfo = 7;
+
 char* Bus_Init()
 {
     static char* error = NULL;
