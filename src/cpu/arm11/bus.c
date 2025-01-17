@@ -15,6 +15,7 @@ u8 CFG11_SWRAM[2][8];
 // mpcore priv rgn io
 u16 SCUControlReg;
 u8 IRQDistControl;
+u8 IRQEnable[30];
 u8 IRQPriority[224];
 u8 IRQTarget[224];
 
@@ -59,17 +60,20 @@ u8 Bus11_Load8_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr)
         case 0x0002: return SCUControlReg>>16;
         case 0x0003: return SCUControlReg>>24;
 
+    case 0x1100 ... 0x1101:
+        case 0x1180 ... 0x1181: return 0xFF;
+        case 0x1102 ... 0x111F:
+        case 0x1182 ... 0x119F: return IRQEnable[(addr & 0x1F)-2];
     case 0x1400 ... 0x140F: return ARM11->PrivRgn.IRQPriority[addr & 0xF];
-    case 0x1410 ... 0x141B: return 0;
-    case 0x141C: return ARM11->PrivRgn.IRQPriority[16];
-    case 0x141D: return ARM11->PrivRgn.IRQPriority[17];
-    case 0x141E: return ARM11->PrivRgn.IRQPriority[18];
-    case 0x141F: return ARM11->PrivRgn.IRQPriority[19];
-    case 0x1420 ... 0x14FF: return IRQPriority[(addr & 0xFF) - 0x20];
+        case 0x1410 ... 0x141B: return 0;
+        case 0x141C: return ARM11->PrivRgn.IRQPriority[16];
+        case 0x141D: return ARM11->PrivRgn.IRQPriority[17];
+        case 0x141E: return ARM11->PrivRgn.IRQPriority[18];
+        case 0x141F: return ARM11->PrivRgn.IRQPriority[19];
+        case 0x1420 ... 0x14FF: return IRQPriority[(addr & 0xFF) - 0x20];
     case 0x1800 ... 0x181B: return 0;
-    case 0x181D ... 0x181F: return (1 << ARM11->CPUID);
-    case 0x1820 ... 0x18FF:
-        return IRQTarget[(addr & 0xFF) - 0x20] | IRQTarget[(addr & 0xFF) - 0x1F] << 8;
+        case 0x181D ... 0x181F: return (1 << ARM11->CPUID);
+        case 0x1820 ... 0x18FF: return IRQTarget[(addr & 0xFF) - 0x20] | IRQTarget[(addr & 0xFF) - 0x1F] << 8;
 
     default:
         printf("UNK MPCORE PRIV RGN LOAD8: %08X %08X\n", addr, ARM11->PC);
@@ -85,16 +89,19 @@ u16 Bus11_Load16_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr)
         case 0x0002: return SCUControlReg>>16;
 
 
+    case 0x1100:
+        case 0x1180: return 0xFFFF;
+        case 0x1102 ... 0x111E:
+        case 0x1182 ... 0x119E: return IRQEnable[(addr & 0x1E)-2] | IRQEnable[(addr & 0x1E)-1] << 8;
     case 0x1400 ... 0x140E: return (ARM11->PrivRgn.IRQPriority[(addr & 0xE) + 1] << 8) | ARM11->PrivRgn.IRQPriority[(addr & 0xE) + 0];
-    case 0x1410 ... 0x141A: return 0;
-    case 0x141C: return (ARM11->PrivRgn.IRQPriority[17] << 8) | ARM11->PrivRgn.IRQPriority[16];
-    case 0x141E: return (ARM11->PrivRgn.IRQPriority[19] << 8) | ARM11->PrivRgn.IRQPriority[18];
-    case 0x1420 ... 0x14FE: return (IRQPriority[(addr & 0xFE) - 0x1F] << 8) | IRQPriority[(addr & 0xFE) - 0x20];
+        case 0x1410 ... 0x141A: return 0;
+        case 0x141C: return (ARM11->PrivRgn.IRQPriority[17] << 8) | ARM11->PrivRgn.IRQPriority[16];
+        case 0x141E: return (ARM11->PrivRgn.IRQPriority[19] << 8) | ARM11->PrivRgn.IRQPriority[18];
+        case 0x1420 ... 0x14FE: return (IRQPriority[(addr & 0xFE) - 0x1F] << 8) | IRQPriority[(addr & 0xFE) - 0x20];
     case 0x1800 ... 0x181A: return 0;
-    case 0x181C: return (1 << (ARM11->CPUID + 8));
-    case 0x181E: return (1 << (ARM11->CPUID)) | (1 << (ARM11->CPUID + 8));
-    case 0x1820 ... 0x18FE:
-        return IRQTarget[(addr & 0xFE) - 0x20] | IRQTarget[(addr & 0xFE) - 0x1F] << 8;
+        case 0x181C: return (1 << (ARM11->CPUID + 8));
+        case 0x181E: return (1 << (ARM11->CPUID)) | (1 << (ARM11->CPUID + 8));
+        case 0x1820 ... 0x18FE: return IRQTarget[(addr & 0xFE) - 0x20] | IRQTarget[(addr & 0xFE) - 0x1F] << 8;
 
     default:
         printf("UNK MPCORE PRIV RGN LOAD16: %08X %08X\n", addr, ARM11->PC);
@@ -155,6 +162,13 @@ u32 Bus11_Load32_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr)
     case 0x0A2C: if ((SCUControlReg >> (9 + ARM11->CPUID)) & 0x1) { return ARM11[3].PrivRgn.WatchdogIRQStat; } else return 0;
     case 0x0A30: if ((SCUControlReg >> (9 + ARM11->CPUID)) & 0x1) { return ARM11[3].PrivRgn.WatchdogResetStat; } else return 0;
 
+
+    case 0x1100:
+        case 0x1180: return 0xFFFF | IRQEnable[0] << 16 | IRQEnable[1] << 24;
+        case 0x1104 ... 0x111C:
+        case 0x1184 ... 0x119C:
+            return IRQEnable[(addr & 0x1C)-2] | IRQEnable[(addr & 0x1C)-1] << 8 |
+                IRQEnable[(addr & 0x1C)] << 16 | IRQEnable[(addr & 0x1C)+1] << 24;
     case 0x1400 ... 0x140C:
         return ARM11->PrivRgn.IRQPriority[(addr & 0xC) + 0] | ARM11->PrivRgn.IRQPriority[(addr & 0xC) + 1] << 8 |
             ARM11->PrivRgn.IRQPriority[(addr & 0xC) + 2] << 16 | ARM11->PrivRgn.IRQPriority[(addr & 0xC) + 3] << 24;
@@ -265,8 +279,6 @@ u32 Bus11_Load32_Main(struct ARM11MPCore* ARM11, const u32 addr)
         return *(u32*)&FCRAM[1][addr & (FCRAM_Size-1)];
 
     printf("UNK LOAD32: %08X %08X\n", addr, ARM11->PC);
-    while (true)
-        ;
     return 0;
 }
 
@@ -294,6 +306,21 @@ void Bus11_Store8_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, const u8
         case 0x1002:
         case 0x1003: break;
 
+    // irq enable set
+    case 0x1102 ... 0x111F:
+        IRQEnable[(addr & 0x1F)-2] |= val;
+        printf("IRQ MASK: ");
+        for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
+        printf("FFFF\n");
+        break;
+
+    // irq enable clear    
+    case 0x1182 ... 0x119F:
+        IRQEnable[(addr & 0x1F)-2] &= ~val;
+        printf("IRQ MASK: ");
+        for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
+        printf("FFFF\n");
+        break;
 
     case 0x1400 ... 0x140F: ARM11->PrivRgn.IRQPriority[addr & 0xF] = val & 0xF0; break;
     case 0x1410 ... 0x141B: break;
@@ -327,6 +354,23 @@ void Bus11_Store16_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, u16 val
     case 0x1000: IRQDistControl = val & 0x1; break;
         case 0x1002: break;
 
+    // irq enable set
+    case 0x1102 ... 0x111E:
+        IRQEnable[(addr & 0x1E)-2] |= val;
+        IRQEnable[(addr & 0x1E)-1] |= val >> 8;
+        printf("IRQ MASK: ");
+        for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
+        printf("FFFF\n");
+        break;
+
+    // irq enable clear    
+    case 0x1182 ... 0x119E:
+        IRQEnable[(addr & 0x1E)-2] &= ~val;
+        IRQEnable[(addr & 0x1E)-1] &= ~val >> 8;
+        printf("IRQ MASK: ");
+        for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
+        printf("FFFF\n");
+        break;
 
     case 0x1400 ... 0x140E:
         val &= 0xF0F0;
@@ -450,6 +494,41 @@ void Bus11_Store32_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, u32 val
     
     case 0x1000: IRQDistControl = val & 0x1; break;
 
+    // irq enable set
+    case 0x1100:
+        IRQEnable[0] |= val >> 16;
+        IRQEnable[1] |= val >> 24;
+        printf("IRQ MASK: ");
+        for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
+        printf("FFFF\n");
+        break;
+    case 0x1104 ... 0x111C:
+        IRQEnable[(addr & 0x1C)-2] |= val;
+        IRQEnable[(addr & 0x1C)-1] |= val >> 8;
+        IRQEnable[(addr & 0x1C)+0] |= val >> 16;
+        IRQEnable[(addr & 0x1C)+1] |= val >> 24;
+        printf("IRQ MASK: ");
+        for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
+        printf("FFFF\n");
+        break;
+    // irq enable clear    
+    case 0x1180:
+        IRQEnable[0] &= ~val >> 16;
+        IRQEnable[1] &= ~val >> 24;
+        printf("IRQ MASK: ");
+        for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
+        printf("FFFF\n");
+        break;
+    case 0x1184 ... 0x119C:
+        IRQEnable[(addr & 0x1C)-2] &= ~val;
+        IRQEnable[(addr & 0x1C)-1] &= ~val >> 8;
+        IRQEnable[(addr & 0x1C)+0] &= ~val >> 16;
+        IRQEnable[(addr & 0x1C)+1] &= ~val >> 24;
+        printf("IRQ MASK: ");
+        for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
+        printf("FFFF\n");
+        break;
+
     case 0x1400 ... 0x140C:
         val &= 0xF0F0F0F0;
         ARM11->PrivRgn.IRQPriority[(addr & 0xC) + 0] = val;
@@ -514,7 +593,7 @@ void Bus11_Store8_Main(struct ARM11MPCore* ARM11, const u32 addr, const u8 val)
     else if ((addr >= 0x18000000) && (addr < 0x18600000))
         VRAM[addr - 0x18000000] = val;
 
-    if ((addr & 0xFFF80000) == 0x1FF00000)
+    else if ((addr & 0xFFF80000) == 0x1FF00000)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) bank[addr&(SWRAM_Size-1)] = val;
@@ -543,7 +622,7 @@ void Bus11_Store16_Main(struct ARM11MPCore* ARM11, const u32 addr, const u16 val
     else if ((addr >= 0x18000000) && (addr < 0x18600000))
         *(u16*)&VRAM[addr - 0x18000000] = val;
 
-    if ((addr & 0xFFF80000) == 0x1FF00000)
+    else if ((addr & 0xFFF80000) == 0x1FF00000)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) *(u16*)&bank[addr&(SWRAM_Size-1)] = val;
@@ -572,7 +651,7 @@ void Bus11_Store32_Main(struct ARM11MPCore* ARM11, const u32 addr, const u32 val
     else if ((addr >= 0x18000000) && (addr < 0x18600000))
         *(u32*)&VRAM[addr - 0x18000000] = val;
 
-    if ((addr & 0xFFF80000) == 0x1FF00000)
+    else if ((addr & 0xFFF80000) == 0x1FF00000)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) *(u32*)&bank[addr&(SWRAM_Size-1)] = val;

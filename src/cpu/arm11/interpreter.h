@@ -495,6 +495,11 @@ void THUMB11_ALU_HI(struct ARM11MPCore* ARM11);
 void THUMB11_ADD_SP_PCRel(struct ARM11MPCore* ARM11);
 void THUMB11_ADD_SUB_SP(struct ARM11MPCore* ARM11);
 
+void ARM11_MUL_MLA(struct ARM11MPCore* ARM11);
+void THUMB11_MULS(struct ARM11MPCore* ARM11, const int rd, const u32 rdval, const u32 rmval);
+
+void THUMB11_Extend(struct ARM11MPCore* ARM11);
+
 void ARM11_LDR_STR(struct ARM11MPCore* ARM11);
 void ARM11_LDM_STM(struct ARM11MPCore* ARM11);
 void ARM11_PLD(struct ARM11MPCore* ARM11);
@@ -508,6 +513,7 @@ void THUMB11_POP(struct ARM11MPCore* ARM11);
 
 void ARM11_B_BL(struct ARM11MPCore* ARM11);
 void ARM11_BX_BLXReg(struct ARM11MPCore* ARM11);
+void ARM11_BLX_Imm(struct ARM11MPCore* ARM11);
 void THUMB11_CondB_SWI(struct ARM11MPCore* ARM11);
 void THUMB11_B(struct ARM11MPCore* ARM11);
 void THUMB11_BL_BLX_LO(struct ARM11MPCore* ARM11);

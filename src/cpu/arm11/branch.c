@@ -31,6 +31,20 @@ void ARM11_BX_BLXReg(struct ARM11MPCore* ARM11)
     ARM11_Branch(ARM11, ARM11_GetReg(ARM11, curinstr & 0xF), false);
 }
 
+void ARM11_BLX_Imm(struct ARM11MPCore* ARM11)
+{
+    const u32 curinstr = ARM11->Instr.Data;
+    u32 addr = curinstr & 0x00FFFFFF;
+
+    addr = (s32)(addr << 8) >> 6;
+
+    addr += ((curinstr >> 24) & 0x1) << 1;
+    addr = (s32)addr + ARM11_GetReg(ARM11, 15);
+    ARM11_WriteReg(ARM11, 14, ARM11_GetReg(ARM11, 15) - 4, false, false);
+
+    ARM11_Branch(ARM11, addr | 1, false);
+}
+
 void THUMB11_CondB_SWI(struct ARM11MPCore* ARM11)
 {
     const u16 curinstr = ARM11->Instr.Data;

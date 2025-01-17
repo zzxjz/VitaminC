@@ -483,7 +483,7 @@ void THUMB11_ALU(struct ARM11MPCore* ARM11)
     case 0xA: ARM11_CMP(ARM11, rd, rdval, rm); break;
     case 0xB: ARM11_CMN(ARM11, rd, rdval, rm); break;
     case 0xC: ARM11_ORR(ARM11, rd, rdval, rm, true); break;
-    case 0xD: printf("UNIMPLEMENTED THUMB MULS!!!!"); break;
+    case 0xD: THUMB11_MULS(ARM11, rd, rdval, rm); break;
     case 0xE: ARM11_BIC(ARM11, rd, rdval, rm, true); break;
     case 0xF: ARM11_MVN(ARM11, rd, rm, true); break;
     }

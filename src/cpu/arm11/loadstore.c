@@ -218,7 +218,7 @@ void THUMB11_LDRH_STRH_Imm5(struct ARM11MPCore* ARM11)
     const u8 rd = curinstr & 0x7;
     const u8 rn = (curinstr >> 3) & 0x7;
     const u8 imm5 = (curinstr >> 6) & 0x1F;
-    const u8 l = curinstr & (1<<11);
+    const bool l = curinstr & (1<<11);
 
     const u32 addr = ARM11_GetReg(ARM11, rn) + (imm5 * 2);
 
