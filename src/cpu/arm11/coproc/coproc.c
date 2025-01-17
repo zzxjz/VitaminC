@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "../interpreter.h"
+#include "../arm.h"
 #include "../../../utils.h"
 
 void ARM11_MCR_MRC(struct ARM11MPCore* ARM11) // WRITE

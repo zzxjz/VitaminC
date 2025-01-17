@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "interpreter.h"
+#include "arm.h"
 #include "../../utils.h"
 
 void ARM11_B_BL(struct ARM11MPCore* ARM11)

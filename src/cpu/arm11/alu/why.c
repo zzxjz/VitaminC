@@ -1,4 +1,4 @@
-#include "../interpreter.h"
+#include "../arm.h"
 #include "../../../utils.h"
 
 void ARM11_SXTH(struct ARM11MPCore* ARM11, const int rd, const u32 rm)
@@ -24,8 +24,8 @@ void ARM11_UXTB(struct ARM11MPCore* ARM11, const int rd, const u32 rm)
 void THUMB11_Extend(struct ARM11MPCore* ARM11)
 {
     u16 curinstr = ARM11->Instr.Data;
-    const int rd = curinstr & 0xF;
-    const u32 rmval = ARM11_GetReg(ARM11, (curinstr >> 4) & 0xF);
+    const int rd = curinstr & 0x7;
+    const u32 rmval = ARM11_GetReg(ARM11, (curinstr >> 3) & 0x7);
     const u8 opcode = (curinstr >> 6) & 0x3;
 
     switch(opcode)

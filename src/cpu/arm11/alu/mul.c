@@ -1,5 +1,5 @@
 #include "../../../utils.h"
-#include "../interpreter.h"
+#include "../arm.h"
 
 void ARM11_MUL_MLA(struct ARM11MPCore* ARM11)
 {

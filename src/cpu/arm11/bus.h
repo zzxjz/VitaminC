@@ -1,17 +1,7 @@
 #pragma once
 
 #include "../../utils.h"
-#include "interpreter.h"
-
-extern u8* Bios11;
-
-extern u8 CFG11_SWRAM[2][8];
-
-extern u16 SCUControlReg;
-extern u8 IRQDistControl;
-extern u8 IRQEnable[30];
-extern u8 IRQPriority[224];
-extern u8 IRQTarget[224];
+#include "arm.h"
 
 enum
 {
@@ -20,6 +10,51 @@ enum
     BusAccess_32Bit = 0x04,
     BusAccess_Store = 0x10,
 };
+struct CFG11
+{
+    union
+    {
+        u32 Data;
+        struct
+        {
+            bool GPURegVRAM_Enable : 1;
+            bool Memfill_Enable : 1;
+            bool InternalReg_Enable0 : 1;
+            bool InternalReg_Enable1 : 1;
+            bool Memcpy_Enable : 1;
+            bool Hang_Disable : 1;
+            bool LCD_Enable : 1;
+            u32 : 9;
+            bool Backlight_Enable : 1;
+        } Sub;
+    } GPUCnt;
+};
+struct GPUIO
+{
+    union
+    {
+        u32 Data;
+        struct
+        {
+            u32 : 8;
+            bool VRAMA_Lo_Disable : 1;
+            bool VRAMA_Hi_Disable : 1;
+            bool VRAMB_Lo_Disable : 1;
+            bool VRAMB_Hi_Disable : 1;
+        } Sub;
+    } VRAMPower;
+};
+extern u8* Bios11;
+
+extern u8 CFG11_SWRAM[2][8];
+extern struct CFG11 CFG11;
+extern struct GPUIO GPUIO;
+
+extern u16 SCUControlReg;
+extern u8 IRQDistControl;
+extern u8 IRQEnable[30];
+extern u8 IRQPriority[224];
+extern u8 IRQTarget[224];
 
 char* Bus11_Init();
 void Bus11_Free();

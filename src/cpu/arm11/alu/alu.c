@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include "../../../utils.h"
-#include "../interpreter.h"
+#include "../arm.h"
 
 void ARM11_AND(struct ARM11MPCore* ARM11, const int rd, const u32 rn, const u32 shifterout, const bool s)
 {
@@ -447,8 +447,8 @@ void THUMB11_ADD_SUB_CMP_MOV_Imm8(struct ARM11MPCore* ARM11)
 {
     const u16 curinstr = ARM11->Instr.Data;
     const u8 opcode = (curinstr >> 11) & 0x3;
-    const u8 rd = (curinstr >> 8) & 0x3;
-    const u8 rdval = ARM11_GetReg(ARM11, rd);
+    const int rd = (curinstr >> 8) & 0x7;
+    const u32 rdval = ARM11_GetReg(ARM11, rd);
     const u8 imm8 = curinstr & 0xFF;
 
     switch(opcode)
@@ -511,7 +511,7 @@ void THUMB11_ADD_SP_PCRel(struct ARM11MPCore* ARM11)
 {
     const u16 curinstr = ARM11->Instr.Data;
     const u8 rd = (curinstr >> 8) & 0x7;
-    const u8 imm8 = curinstr;
+    const u8 imm8 = curinstr & 0xFF;
     const bool sp = curinstr & (1<<11);
 
     u32 val = (sp ? ARM11_GetReg(ARM11, 13) : (ARM11_GetReg(ARM11, 15) & ~0x3));

@@ -1,6 +1,6 @@
 #include <string.h>
 #include <stdio.h>
-#include "interpreter.h"
+#include "arm.h"
 #include "../../utils.h"
 #include "bus.h"
 
@@ -123,7 +123,7 @@ void* ARM11_InitTHUMBInstrLUT(const u8 bits)
 	CHECK(100100, 111100, THUMB11_LDR_STR_SPRel); // ldr/str sprel
 	CHECK(101000, 111100, THUMB11_ADD_SP_PCRel); // add sp/pcrel
 	CHECK(101100, 111100, THUMB11_DecodeMiscThumb); // misc
-	CHECK(110000, 111100, NULL); // ldm/stm
+	CHECK(110000, 111100, THUMB11_LDMIA_STMIA); // ldm/stm
 	CHECK(110100, 111100, THUMB11_CondB_SWI); // cond b/udf/svc
 	CHECK(111000, 111110, THUMB11_B); // b
 	CHECK(111100, 111110, THUMB11_BL_BLX_LO); // bl(x) prefix
@@ -299,6 +299,7 @@ void ARM11_MSR(struct ARM11MPCore* ARM11, u32 val)
 		val |= ARM11->CPSR & ~writemask;
 		ARM11_UpdateMode(ARM11, ARM11->Mode, val&0x1F);
 		ARM11->CPSR = val;
+		printf("CPSR UPDATE: %08X\n", ARM11->CPSR);
 	}
 }
 
@@ -364,6 +365,7 @@ void ARM11_Branch(struct ARM11MPCore* ARM11, u32 addr, const bool restore)
 		const u32 spsr = *ARM11->SPSR;
 		ARM11_UpdateMode(ARM11, ARM11->Mode, spsr & 0x1F);
 		ARM11->CPSR = spsr;
+		printf("CPSR RESTORE: %08X\n", ARM11->CPSR);
 
 		addr &= ~0x1;
 		addr |= ARM11->Thumb;

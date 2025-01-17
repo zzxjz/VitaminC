@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "interpreter.h"
+#include "arm.h"
 #include "../../utils.h"
 #include "bus.h"
 #include "../shared/bus.h"
@@ -11,6 +11,8 @@ const u32 Bios11_Size = 64 * 1024;
 
 // io
 u8 CFG11_SWRAM[2][8];
+struct CFG11 CFG11;
+struct GPUIO GPUIO;
 
 // mpcore priv rgn io
 u16 SCUControlReg;
@@ -42,6 +44,9 @@ char* Bus11_Init()
     memset(CFG11_SWRAM, 0, sizeof(CFG11_SWRAM));
     memset(IRQPriority, 0, sizeof(IRQPriority));
     memset(IRQTarget, 0, sizeof(IRQTarget));
+    memset(&CFG11, 0, sizeof(CFG11));
+    memset(&GPUIO, 0, sizeof(GPUIO));
+    GPUIO.VRAMPower.Data = 0xFFFFFFFF;
 
     return NULL;
 }
@@ -49,6 +54,27 @@ char* Bus11_Init()
 void Bus11_Free()
 {
     free(Bios11);
+}
+
+u16 Bus11_Load16_IO(struct ARM11MPCore* ARM11, const u32 addr)
+{
+    switch(addr)
+    {
+        case 0x10140FFC: return SOCInfo;
+
+        default: printf("UNK IO LOAD16: %08X %08X\n", addr, ARM11->PC); return 0;
+    }
+}
+
+u32 Bus11_Load32_IO(struct ARM11MPCore* ARM11, const u32 addr)
+{
+    switch(addr)
+    {
+        case 0x10141200: return CFG11.GPUCnt.Data;
+        case 0x10400030: return GPUIO.VRAMPower.Data;
+
+        default: printf("UNK IO LOAD32: %08X %08X\n", addr, ARM11->PC); return 0;
+    }
 }
 
 u8 Bus11_Load8_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr)
@@ -201,7 +227,26 @@ u8 Bus11_Load8_Main(struct ARM11MPCore* ARM11, const u32 addr)
         return Bus11_Load8_MPCorePriv(ARM11, addr);
 
     if ((addr >= 0x18000000) && (addr < 0x18600000))
-        return VRAM[addr - 0x18000000];
+    {
+        if (CFG11.GPUCnt.Sub.GPURegVRAM_Enable)
+        {
+            if ((addr >= 0x18000000) && (addr < 0x18300000)) // VRAM A
+            {
+                if (!((addr & 0x8) ? GPUIO.VRAMPower.Sub.VRAMA_Hi_Disable : GPUIO.VRAMPower.Sub.VRAMA_Lo_Disable))
+                    return VRAM[addr - 0x18000000];
+                else
+                    ; // todo: hang cpu 
+            }
+
+            if ((addr >= 0x18300000) && (addr < 0x18600000)) // VRAM B
+            {
+                if (!((addr & 0x8) ? GPUIO.VRAMPower.Sub.VRAMB_Hi_Disable : GPUIO.VRAMPower.Sub.VRAMB_Lo_Disable))
+                    return VRAM[addr - 0x18000000];
+                else
+                    ; // todo: hang cpu 
+            }
+        }
+    }
 
     if ((addr & 0xFFF80000) == 0x1FF00000)
     {
@@ -227,11 +272,33 @@ u16 Bus11_Load16_Main(struct ARM11MPCore* ARM11, const u32 addr)
     if ((addr < 0x20000) || (addr >= 0xFFFF0000))
         return *(u16*)&Bios11[addr & (Bios11_Size-1)];
 
+    if ((addr >= 0x10100000) && addr < 0x17E00000) // checkme?
+        return Bus11_Load16_IO(ARM11, addr);
+
     if ((addr & 0xFFFFE000) == 0x17E00000)
         return Bus11_Load16_MPCorePriv(ARM11, addr);
 
     if ((addr >= 0x18000000) && (addr < 0x18600000))
-        return *(u16*)&VRAM[addr - 0x18000000];
+    {
+        if (CFG11.GPUCnt.Sub.GPURegVRAM_Enable)
+        {
+            if ((addr >= 0x18000000) && (addr < 0x18300000)) // VRAM A
+            {
+                if (!((addr & 0x8) ? GPUIO.VRAMPower.Sub.VRAMA_Hi_Disable : GPUIO.VRAMPower.Sub.VRAMA_Lo_Disable))
+                    return *(u16*)&VRAM[addr - 0x18000000];
+                else
+                    ; // todo: hang cpu 
+            }
+
+            if ((addr >= 0x18300000) && (addr < 0x18600000)) // VRAM B
+            {
+                if (!((addr & 0x8) ? GPUIO.VRAMPower.Sub.VRAMB_Hi_Disable : GPUIO.VRAMPower.Sub.VRAMB_Lo_Disable))
+                    return *(u16*)&VRAM[addr - 0x18000000];
+                else
+                    ; // todo: hang cpu 
+            }
+        }
+    }
 
     if ((addr & 0xFFF80000) == 0x1FF00000)
     {
@@ -257,11 +324,33 @@ u32 Bus11_Load32_Main(struct ARM11MPCore* ARM11, const u32 addr)
     if ((addr < 0x20000) || (addr >= 0xFFFF0000))
         return *(u32*)&Bios11[addr & (Bios11_Size-1)];
 
+    if ((addr >= 0x10100000) && addr < 0x17E00000) // checkme?
+        return Bus11_Load32_IO(ARM11, addr);
+
     if ((addr & 0xFFFFE000) == 0x17E00000)
         return Bus11_Load32_MPCorePriv(ARM11, addr);
 
     if ((addr >= 0x18000000) && (addr < 0x18600000))
-        return *(u32*)&VRAM[addr - 0x18000000];
+    {
+        if (CFG11.GPUCnt.Sub.GPURegVRAM_Enable)
+        {
+            if ((addr >= 0x18000000) && (addr < 0x18300000)) // VRAM A
+            {
+                if (!((addr & 0x8) ? GPUIO.VRAMPower.Sub.VRAMA_Hi_Disable : GPUIO.VRAMPower.Sub.VRAMA_Lo_Disable))
+                    return *(u32*)&VRAM[addr - 0x18000000];
+                else
+                    ; // todo: hang cpu 
+            }
+
+            if ((addr >= 0x18300000) && (addr < 0x18600000)) // VRAM B
+            {
+                if (!((addr & 0x8) ? GPUIO.VRAMPower.Sub.VRAMB_Hi_Disable : GPUIO.VRAMPower.Sub.VRAMB_Lo_Disable))
+                    return *(u32*)&VRAM[addr - 0x18000000];
+                else
+                    ; // todo: hang cpu 
+            }
+        }
+    }
 
     if ((addr & 0xFFF80000) == 0x1FF00000)
     {
@@ -287,7 +376,19 @@ void Bus11_Store8_IO(struct ARM11MPCore* ARM11, const u32 addr, const u8 val)
     switch(addr)
     {
         case 0x10140000 ... 0x1014000F: MapSWRAM(addr & 0x8, addr & 0x7, val); break;
-        default: printf("UNK IO STORE8 %08X %08X %08X\n", addr, val, ARM11->PC); break;
+
+        default: printf("UNK IO STORE8 %08X %02X %08X\n", addr, val, ARM11->PC); break;
+    }
+}
+
+void Bus11_Store32_IO(struct ARM11MPCore* ARM11, const u32 addr, const u32 val)
+{
+    switch (addr)
+    {
+        case 0x10141200: CFG11.GPUCnt.Data = val & 0x10075; break;
+        case 0x10400030: GPUIO.VRAMPower.Data = val | 0xFFFFF0FF; break;
+
+        default: printf("UNK IO STORE32 %08X %08X %08X\n", addr, val, ARM11->PC); break;
     }
 }
 
@@ -339,7 +440,7 @@ void Bus11_Store8_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, const u8
     case 0x1C04 ... 0x1C07: break;
     case 0x1C08 ... 0x1C3F: ARM11->PrivRgn.IRQConfig[(addr & 0x3C) - 4] = val; break;
 
-    default: printf("UNK MPCORE PRIV RGN STORE8: %08X %08X %08X\n", addr, val, ARM11->PC); break;
+    default: printf("UNK MPCORE PRIV RGN STORE8: %08X %02X %08X\n", addr, val, ARM11->PC); break;
     }
 }
 
@@ -416,7 +517,7 @@ void Bus11_Store16_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, u16 val
         ARM11->PrivRgn.IRQConfig[(addr & 0x3C) - 3] = val >> 8;
         break;
 
-    default: printf("UNK MPCORE PRIV RGN STORE16: %08X %08X %08X\n", addr, val, ARM11->PC); break;
+    default: printf("UNK MPCORE PRIV RGN STORE16: %08X %04X %08X\n", addr, val, ARM11->PC); break;
     }
 }
 
@@ -581,23 +682,35 @@ void Bus11_Store32_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, u32 val
 
 void Bus11_Store8_Main(struct ARM11MPCore* ARM11, const u32 addr, const u8 val)
 {
-    if ((addr < 0x20000) || (addr >= 0xFFFF0000))
-        Bios11[addr & (Bios11_Size-1)] = val;
-
-    else if ((addr >= 0x10100000) && addr < 0x17E00000) // checkme?
+    if ((addr >= 0x10100000) && addr < 0x17E00000) // checkme?
         Bus11_Store8_IO(ARM11, addr, val);
 
     else if ((addr & 0xFFFFE000) == 0x17E00000)
         Bus11_Store8_MPCorePriv(ARM11, addr, val);
 
     else if ((addr >= 0x18000000) && (addr < 0x18600000))
-        VRAM[addr - 0x18000000] = val;
+    {
+        if (CFG11.GPUCnt.Sub.GPURegVRAM_Enable)
+        {
+            if ((addr >= 0x18000000) && (addr < 0x18300000))
+            {
+                if (!((addr & 0x8) ? GPUIO.VRAMPower.Sub.VRAMA_Hi_Disable : GPUIO.VRAMPower.Sub.VRAMA_Lo_Disable))
+                    VRAM[addr - 0x18000000] = val;
+            }
 
+            else if ((addr >= 0x18300000) && (addr < 0x18600000))
+            {
+                if (!((addr & 0x8) ? GPUIO.VRAMPower.Sub.VRAMB_Hi_Disable : GPUIO.VRAMPower.Sub.VRAMB_Lo_Disable))
+                    VRAM[addr - 0x18000000] = val;
+            }
+        }
+    }
+    
     else if ((addr & 0xFFF80000) == 0x1FF00000)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) bank[addr&(SWRAM_Size-1)] = val;
-        else { printf("UNALLOCATED SWRAM STORE8!! %08X %08X %08X", addr, val, ARM11->PC); }
+        else { printf("UNALLOCATED SWRAM STORE8!! %08X %02X %08X\n", addr, val, ARM11->PC); }
     }
 
     else if ((addr & 0xFFF80000) == 0x1FF80000)
@@ -608,25 +721,37 @@ void Bus11_Store8_Main(struct ARM11MPCore* ARM11, const u32 addr, const u8 val)
     else if ((addr & 0xF8000000) == 0x28000000)
         FCRAM[1][addr & (FCRAM_Size-1)] = val;
 
-    else printf("UNK STORE8: %08X %08X %08X\n", addr, val, ARM11->PC);
+    else printf("UNK STORE8: %08X %02X %08X\n", addr, val, ARM11->PC);
 }
 
 void Bus11_Store16_Main(struct ARM11MPCore* ARM11, const u32 addr, const u16 val)
 {
-    if ((addr < 0x20000) || (addr >= 0xFFFF0000))
-        *(u16*)&Bios11[addr & (Bios11_Size-1)] = val;
-
-    else if ((addr & 0xFFFFE000) == 0x17E00000)
+    if ((addr & 0xFFFFE000) == 0x17E00000)
         Bus11_Store16_MPCorePriv(ARM11, addr, val);
 
     else if ((addr >= 0x18000000) && (addr < 0x18600000))
-        *(u16*)&VRAM[addr - 0x18000000] = val;
+    {
+        if (CFG11.GPUCnt.Sub.GPURegVRAM_Enable)
+        {
+            if ((addr >= 0x18000000) && (addr < 0x18300000))
+            {
+                if (!((addr & 0x8) ? GPUIO.VRAMPower.Sub.VRAMA_Hi_Disable : GPUIO.VRAMPower.Sub.VRAMA_Lo_Disable))
+                    *(u16*)&VRAM[addr - 0x18000000] = val;
+            }
+
+            else if ((addr >= 0x18300000) && (addr < 0x18600000))
+            {
+                if (!((addr & 0x8) ? GPUIO.VRAMPower.Sub.VRAMB_Hi_Disable : GPUIO.VRAMPower.Sub.VRAMB_Lo_Disable))
+                    *(u16*)&VRAM[addr - 0x18000000] = val;
+            }
+        }
+    }
 
     else if ((addr & 0xFFF80000) == 0x1FF00000)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) *(u16*)&bank[addr&(SWRAM_Size-1)] = val;
-        else { printf("UNALLOCATED SWRAM STORE16!! %08X %08X %08X", addr, val, ARM11->PC); }
+        else { printf("UNALLOCATED SWRAM STORE16!! %08X %04X %08X\n", addr, val, ARM11->PC); }
     }
 
     else if ((addr & 0xFFF80000) == 0x1FF80000)
@@ -637,25 +762,40 @@ void Bus11_Store16_Main(struct ARM11MPCore* ARM11, const u32 addr, const u16 val
     else if ((addr & 0xF8000000) == 0x28000000)
         *(u16*)&FCRAM[1][addr & (FCRAM_Size-1)] = val;
 
-    else printf("UNK STORE16: %08X %08X %08X\n", addr, val, ARM11->PC);
+    else printf("UNK STORE16: %08X %04X %08X\n", addr, val, ARM11->PC);
 }
 
 void Bus11_Store32_Main(struct ARM11MPCore* ARM11, const u32 addr, const u32 val)
 {
-    if ((addr < 0x20000) || (addr >= 0xFFFF0000))
-        *(u32*)&Bios11[addr & (Bios11_Size-1)] = val;
+    if ((addr >= 0x10100000) && addr < 0x17E00000) // checkme?
+        Bus11_Store32_IO(ARM11, addr, val);
 
     else if ((addr & 0xFFFFE000) == 0x17E00000)
         Bus11_Store32_MPCorePriv(ARM11, addr, val);
 
     else if ((addr >= 0x18000000) && (addr < 0x18600000))
-        *(u32*)&VRAM[addr - 0x18000000] = val;
+    {
+        if (CFG11.GPUCnt.Sub.GPURegVRAM_Enable)
+        {
+            if ((addr >= 0x18000000) && (addr < 0x18300000))
+            {
+                if (!((addr & 0x8) ? GPUIO.VRAMPower.Sub.VRAMA_Hi_Disable : GPUIO.VRAMPower.Sub.VRAMA_Lo_Disable))
+                    *(u32*)&VRAM[addr - 0x18000000] = val;
+            }
 
+            else if ((addr >= 0x18300000) && (addr < 0x18600000))
+            {
+                if (!((addr & 0x8) ? GPUIO.VRAMPower.Sub.VRAMB_Hi_Disable : GPUIO.VRAMPower.Sub.VRAMB_Lo_Disable))
+                    *(u32*)&VRAM[addr - 0x18000000] = val;
+            }
+        }
+    }
+    
     else if ((addr & 0xFFF80000) == 0x1FF00000)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) *(u32*)&bank[addr&(SWRAM_Size-1)] = val;
-        else { printf("UNALLOCATED SWRAM STORE32!! %08X %08X %08X", addr, val, ARM11->PC); }
+        else { printf("UNALLOCATED SWRAM STORE32!! %08X %08X %08X\n", addr, val, ARM11->PC); }
     }
 
     else if ((addr & 0xFFF80000) == 0x1FF80000)
