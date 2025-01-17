@@ -1,4 +1,14 @@
+#pragma once
+
 #include "../../utils.h"
+
+enum
+{
+    BusAccess_8Bit  = 0x01,
+    BusAccess_16Bit = 0x02,
+    BusAccess_32Bit = 0x04,
+    BusAccess_Store = 0x10,
+};
 
 extern u8* SWRAM[2][8];
 extern const u32 SWRAM_Size;

@@ -3,27 +3,7 @@
 #include "arm.h"
 #include "../../utils.h"
 #include "bus.h"
-
-// stolen from melonds oops
-alignas(32) const u16 CondLookup[16] =
-{
-    0xF0F0, // EQ
-    0x0F0F, // NE
-    0xCCCC, // CS
-    0x3333, // CC
-    0xFF00, // MI
-    0x00FF, // PL
-    0xAAAA, // VS
-    0x5555, // VC
-    0x0C0C, // HI
-    0xF3F3, // LS
-    0xAA55, // GE
-    0x55AA, // LT
-    0x0A05, // GT
-    0xF5FA, // LE
-    0xFFFF, // AL
-    0x0000  // NV
-};
+#include "../shared/arm.h"
 
 inline u32 ARM11_ROR32(u32 val, u8 ror)
 {
@@ -131,7 +111,7 @@ void* ARM11_InitTHUMBInstrLUT(const u8 bits)
 	return NULL; // udf
 }
 
-void* DecodeUncondInstr(const u32 bits)
+void* ARM11_DecodeUncondInstr(const u32 bits)
 {
 	CHECK(0001000000000000000000000000, 1111111100010000000000100000, NULL) // cps
 	CHECK(0001000000010000000000000000, 1111111111110000000011110000, NULL) // setend
@@ -451,7 +431,7 @@ void ARM11_StartExec(struct ARM11MPCore* ARM11)
 	}
 	else if (condcode == COND_NV) // do special handling for unconditional instructions
 	{
-		void (*func)(struct ARM11MPCore*) = DecodeUncondInstr(instr);
+		void (*func)(struct ARM11MPCore*) = ARM11_DecodeUncondInstr(instr);
 		if (func) func(ARM11);
 		else
 		{

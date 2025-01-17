@@ -3,13 +3,6 @@
 #include "../../utils.h"
 #include "arm.h"
 
-enum
-{
-    BusAccess_8Bit  = 0x01,
-    BusAccess_16Bit = 0x02,
-    BusAccess_32Bit = 0x04,
-    BusAccess_Store = 0x10,
-};
 struct CFG11
 {
     union
