@@ -3,3 +3,4 @@ VitaminC
 *.bin
 .vscode
 *.exe
+*.o
