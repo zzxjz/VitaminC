@@ -191,7 +191,7 @@ struct ARM946E_S
 			{
 				bool : 1;
 				u32 Size : 5;
-				u32 : 7;
+				u32 : 6;
 				u32 Base : 20;
 			};
 		} DTCMRegion;
@@ -202,12 +202,15 @@ struct ARM946E_S
 			{
 				bool : 1;
 				u32 Size : 5;
-				u32 : 7;
+				u32 : 6;
 				u32 Base : 20;
 			};
 		} ITCMRegion;
 		u32 ProcessID;
 	} CP15;
+	u32 ITCMMask;
+	u32 DTCMMask;
+	u32 DTCMBase;
 };
 
 extern void (*ARM9_InstrLUT[0x1000]) (struct ARM946E_S* ARM9);
@@ -229,8 +232,6 @@ void ARM9_StartFetch(struct ARM946E_S* ARM9);
 void ARM9_StartExec(struct ARM946E_S* ARM9);
 void THUMB9_StartExec(struct ARM946E_S* ARM9);
 void ARM9_RunInterpreter(struct ARM946E_S* ARM9, u64 target);
-
-bool ARM9_CP15_PageTable_Lookup(struct ARM946E_S* ARM9, u32* addr, const u8 accesstype);
 
 
 // instr implementations

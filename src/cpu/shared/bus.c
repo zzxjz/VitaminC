@@ -2,6 +2,7 @@
 #include <string.h>
 #include "bus.h"
 #include "../arm11/bus.h"
+#include "../arm9/bus.h"
 
 
 u8* SWRAM[2][8];
@@ -31,6 +32,7 @@ char* Bus_Init()
             SWRAM[s][b] = calloc(1, SWRAM_Size);
 
     if ((error = Bus11_Init())) return error;
+    if ((error = Bus9_Init())) return error;
 
     return NULL;
 }

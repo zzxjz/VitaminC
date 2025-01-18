@@ -111,16 +111,16 @@ struct ARM946E_S _ARM9;
 char* ARM9_Init()
 {
 	memset(&_ARM9, 0, sizeof(_ARM9));
-	for (int i = 0; i < 4; i++)
-	{
-		_ARM9.NextStep = ARM9_StartFetch;
-		ARM9_Branch(&_ARM9, 0xFFFF0000, false);
-		_ARM9.Mode = MODE_SVC;
-		_ARM9.SPSR = &_ARM9.SVC.SPSR;
-		_ARM9.CP15.Control.Data = 0x00002078; // checkme: itcm could be enabled on boot?
-		_ARM9.CP15.DTCMRegion.Size = 5;
-		_ARM9.CP15.ITCMRegion.Size = 6;
-	}
+	_ARM9.NextStep = ARM9_StartFetch;
+	ARM9_Branch(&_ARM9, 0xFFFF0000, false);
+	_ARM9.Mode = MODE_SVC;
+	_ARM9.SPSR = &_ARM9.SVC.SPSR;
+	_ARM9.CP15.Control.Data = 0x00002078; // checkme: itcm could be enabled on boot?
+	_ARM9.CP15.DTCMRegion.Size = 5;
+	_ARM9.CP15.ITCMRegion.Size = 6;
+	_ARM9.ITCMMask = 0xFFFFFFFF;
+    _ARM9.DTCMMask = 0x00000000;
+    _ARM9.DTCMBase = 0xFFFFFFFF;
 	return NULL;
 }
 
@@ -279,14 +279,15 @@ u32 ARM9_CodeFetch(struct ARM946E_S* ARM9)
 
 void ARM9_Branch(struct ARM946E_S* ARM9, u32 addr, const bool restore)
 {
-	printf("Jumping to %08X from %08X via %08X\n", addr, ARM9->PC, ARM9->Instr[0].Data);
+	if (addr != 0xFFFF8208)
+		printf("ARM9: Jumping to %08X from %08X via %08X\n", addr, ARM9->PC, ARM9->Instr[0].Data);
 
 	if (restore)
 	{
 		const u32 spsr = *ARM9->SPSR;
 		ARM9_UpdateMode(ARM9, ARM9->Mode, spsr & 0x1F);
 		ARM9->CPSR = spsr;
-		printf("CPSR RESTORE: %08X\n", ARM9->CPSR);
+		printf("ARM9 - CPSR RESTORE: %08X\n", ARM9->CPSR);
 
 		addr &= ~0x1;
 		addr |= ARM9->Thumb;
@@ -361,7 +362,7 @@ void ARM9_StartExec(struct ARM946E_S* ARM9)
 			(ARM9_InstrLUT[decodebits])(ARM9);
 		else
 		{
-			printf("UNIMPL ARM INSTR: %08X @ %08X!!!\n", ARM9->Instr[0].Data, ARM9->PC);
+			printf("ARM9 - UNIMPL ARM INSTR: %08X @ %08X!!!\n", ARM9->Instr[0].Data, ARM9->PC);
 			for (int i = 0; i < 16; i++) printf("%i, %08X ", i, ARM9->R[i]);
 			while (true)
 				;
@@ -375,7 +376,7 @@ void ARM9_StartExec(struct ARM946E_S* ARM9)
 		if (func) func(ARM9);
 		else
 		{
-			printf("UNCOND: %08X!!!!\n", ARM9->Instr[0].Data);
+			printf("ARM9 - UNCOND: %08X!!!!\n", ARM9->Instr[0].Data);
 			for (int i = 0; i < 16; i++) printf("%i, %08X ", i, ARM9->R[i]);
 			while (true)
 				;
@@ -401,7 +402,7 @@ void THUMB9_StartExec(struct ARM946E_S* ARM9)
 		(THUMB9_InstrLUT[decodebits])(ARM9);
 	else
 	{
-		printf("UNIMPL THUMB INSTR: %04X @ %08X\n", instr, ARM9->PC);
+		printf("ARM9 - UNIMPL THUMB INSTR: %04X @ %08X\n", instr, ARM9->PC);
 		while(true)
 			;
 	}

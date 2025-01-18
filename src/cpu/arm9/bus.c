@@ -9,6 +9,12 @@
 
 u8* Bios9;
 const u32 Bios9_Size = 64 * 1024;
+u8* ARM9WRAM;
+const u32 ARM9WRAM_Size = 1 * 1024 * 1024;
+u8* ITCM;
+const u32 ITCM_PhySize = 32 * 1024;
+u8* DTCM;
+const u32 DTCM_PhySize = 16 * 1024;
 
 char* Bus9_Init()
 {
@@ -27,7 +33,9 @@ char* Bus9_Init()
     {
         return "bios_ctr9.bin not found.";
     }
-
+    ARM9WRAM = calloc(1, ARM9WRAM_Size);
+    ITCM = calloc(1, ITCM_PhySize);
+    DTCM = calloc(1, DTCM_PhySize);
     return NULL;
 }
 
@@ -38,6 +46,12 @@ void Bus9_Free()
 
 u8 Bus9_Load8_Main(struct ARM946E_S* ARM9, const u32 addr)
 {
+    if (addr >= 0xFFFF0000)
+        return Bios9[addr & (Bios9_Size-1)];
+
+    if ((addr & 0xF8000000) == 0x08000000)
+        return ARM9WRAM[addr & (ARM9WRAM_Size-1)];
+
     if ((addr >= 0x18000000) && (addr < 0x18600000))
     {
         if (CFG11.GPUCnt.Sub.GPURegVRAM_Enable)
@@ -81,6 +95,12 @@ u8 Bus9_Load8_Main(struct ARM946E_S* ARM9, const u32 addr)
 
 u16 Bus9_Load16_Main(struct ARM946E_S* ARM9, const u32 addr)
 {
+    if (addr >= 0xFFFF0000)
+        return *(u16*)&Bios9[addr & (Bios9_Size-1)];
+
+    if ((addr & 0xF8000000) == 0x08000000)
+        return *(u16*)&ARM9WRAM[addr & (ARM9WRAM_Size-1)];
+
     if ((addr >= 0x18000000) && (addr < 0x18600000))
     {
         if (CFG11.GPUCnt.Sub.GPURegVRAM_Enable)
@@ -124,6 +144,12 @@ u16 Bus9_Load16_Main(struct ARM946E_S* ARM9, const u32 addr)
 
 u32 Bus9_Load32_Main(struct ARM946E_S* ARM9, const u32 addr)
 {
+    if (addr >= 0xFFFF0000)
+        return *(u32*)&Bios9[addr & (Bios9_Size-1)];
+
+    if ((addr & 0xF8000000) == 0x08000000)
+        return *(u32*)&ARM9WRAM[addr & (ARM9WRAM_Size-1)];
+
     if ((addr >= 0x18000000) && (addr < 0x18600000))
     {
         if (CFG11.GPUCnt.Sub.GPURegVRAM_Enable)
@@ -161,13 +187,17 @@ u32 Bus9_Load32_Main(struct ARM946E_S* ARM9, const u32 addr)
     if ((addr & 0xF8000000) == 0x28000000)
         return *(u32*)&FCRAM[1][addr & (FCRAM_Size-1)];
 
-    printf("UNK LOAD32: %08X %08X\n", addr, ARM9->PC);
+    printf("ARM9 - UNK LOAD32: %08X %08X\n", addr, ARM9->PC);
+    while(addr == 0x10008000);
     return 0;
 }
 
 void Bus9_Store8_Main(struct ARM946E_S* ARM9, const u32 addr, const u8 val)
 {
-    if ((addr >= 0x18000000) && (addr < 0x18600000))
+    if ((addr & 0xF8000000) == 0x08000000)
+        ARM9WRAM[addr & (ARM9WRAM_Size-1)] = val;
+
+    else if ((addr >= 0x18000000) && (addr < 0x18600000))
     {
         if (CFG11.GPUCnt.Sub.GPURegVRAM_Enable)
         {
@@ -205,7 +235,10 @@ void Bus9_Store8_Main(struct ARM946E_S* ARM9, const u32 addr, const u8 val)
 
 void Bus9_Store16_Main(struct ARM946E_S* ARM9, const u32 addr, const u16 val)
 {
-    if ((addr >= 0x18000000) && (addr < 0x18600000))
+    if ((addr & 0xF8000000) == 0x08000000)
+        *(u16*)&ARM9WRAM[addr & (ARM9WRAM_Size-1)] = val;
+
+    else if ((addr >= 0x18000000) && (addr < 0x18600000))
     {
         if (CFG11.GPUCnt.Sub.GPURegVRAM_Enable)
         {
@@ -243,7 +276,10 @@ void Bus9_Store16_Main(struct ARM946E_S* ARM9, const u32 addr, const u16 val)
 
 void Bus9_Store32_Main(struct ARM946E_S* ARM9, const u32 addr, const u32 val)
 {
-    if ((addr >= 0x18000000) && (addr < 0x18600000))
+    if ((addr & 0xF8000000) == 0x08000000)
+        *(u32*)&ARM9WRAM[addr & (ARM9WRAM_Size-1)] = val;
+
+    else if ((addr >= 0x18000000) && (addr < 0x18600000))
     {
         if (CFG11.GPUCnt.Sub.GPURegVRAM_Enable)
         {
@@ -281,63 +317,88 @@ void Bus9_Store32_Main(struct ARM946E_S* ARM9, const u32 addr, const u32 val)
 
 u32 Bus9_InstrLoad32(struct ARM946E_S* ARM9, u32 addr)
 {
-    ARM9_CP15_PageTable_Lookup(ARM9, &addr, TLB_Instr | TLB_Read);
-
     addr &= ~0x3;
+
+    if (!ARM9->CP15.Control.ITCMWriteOnly && !(addr & ARM9->ITCMMask))
+        return *(u32*)&ITCM[addr & (ITCM_PhySize-1)];
 
     return Bus9_Load32_Main(ARM9, addr);
 }
 
 u32 Bus9_Load32(struct ARM946E_S* ARM9, u32 addr)
 {
-    ARM9_CP15_PageTable_Lookup(ARM9, &addr, TLB_Read);
-
     if (addr & 0x3) printf("UNALIGNED LOAD32 %08X %08X\n", addr, ARM9->PC);
     addr &= ~0x3;
+
+    if (!ARM9->CP15.Control.ITCMWriteOnly && !(addr & ARM9->ITCMMask))
+        return *(u32*)&ITCM[addr & (ITCM_PhySize-1)];
+
+    if (!ARM9->CP15.Control.DTCMWriteOnly && ((addr & ARM9->DTCMMask) == ARM9->DTCMBase))
+        return *(u32*)&DTCM[addr & (DTCM_PhySize-1)];
 
     return Bus9_Load32_Main(ARM9, addr);
 }
 
 u16 Bus9_Load16(struct ARM946E_S* ARM9, u32 addr)
 {
-    ARM9_CP15_PageTable_Lookup(ARM9, &addr, TLB_Read);
-
     if (addr & 0x1) printf("UNALIGNED LOAD16 %08X %08X\n", addr, ARM9->PC);
     addr &= ~0x1;
+
+    if (!ARM9->CP15.Control.ITCMWriteOnly && !(addr & ARM9->ITCMMask))
+        return *(u16*)&ITCM[addr & (ITCM_PhySize-1)];
+
+    if (!ARM9->CP15.Control.DTCMWriteOnly && ((addr & ARM9->DTCMMask) == ARM9->DTCMBase))
+        return *(u16*)&DTCM[addr & (DTCM_PhySize-1)];
 
     return Bus9_Load16_Main(ARM9, addr);
 }
 
 u8 Bus9_Load8(struct ARM946E_S* ARM9, u32 addr)
 {
-    ARM9_CP15_PageTable_Lookup(ARM9, &addr, TLB_Read);
+    if (!ARM9->CP15.Control.ITCMWriteOnly && !(addr & ARM9->ITCMMask))
+        return ITCM[addr & (ITCM_PhySize-1)];
+
+    if (!ARM9->CP15.Control.DTCMWriteOnly && ((addr & ARM9->DTCMMask) == ARM9->DTCMBase))
+        return DTCM[addr & (DTCM_PhySize-1)];
 
     return Bus9_Load8_Main(ARM9, addr);
 }
 
 void Bus9_Store32(struct ARM946E_S* ARM9, u32 addr, const u32 val)
 {
-    ARM9_CP15_PageTable_Lookup(ARM9, &addr, 0);
-
-    if (addr & 0x3) printf("UNALIGNED STORE32 %08X %08X\n", addr, ARM9->PC);
+    if (addr & 0x3) printf("ARM9 - UNALIGNED STORE32: %08X %08X\n", addr, ARM9->PC);
     addr &= ~0x3;
 
-    Bus9_Store32_Main(ARM9, addr, val);
+    if (!(addr & ARM9->ITCMMask))
+        *(u32*)&ITCM[addr & (ITCM_PhySize-1)] = val;
+
+    else if ((addr & ARM9->DTCMMask) == ARM9->DTCMBase)
+        *(u32*)&DTCM[addr & (DTCM_PhySize-1)] = val;
+
+    else Bus9_Store32_Main(ARM9, addr, val);
 }
 
 void Bus9_Store16(struct ARM946E_S* ARM9, u32 addr, const u16 val)
 {
-    ARM9_CP15_PageTable_Lookup(ARM9, &addr, 0);
-
-    if (addr & 0x1) printf("UNALIGNED STORE16 %08X %08X\n", addr, ARM9->PC);
+    if (addr & 0x1) printf("ARM9 - UNALIGNED STORE16: %08X %08X\n", addr, ARM9->PC);
     addr &= ~0x1;
 
-    Bus9_Store16_Main(ARM9, addr, val);
+    if (!(addr & ARM9->ITCMMask))
+        *(u16*)&ITCM[addr & (ITCM_PhySize-1)] = val;
+
+    else if ((addr & ARM9->DTCMMask) == ARM9->DTCMBase)
+        *(u16*)&DTCM[addr & (DTCM_PhySize-1)] = val;
+
+    else Bus9_Store16_Main(ARM9, addr, val);
 }
 
 void Bus9_Store8(struct ARM946E_S* ARM9, u32 addr, const u8 val)
 {
-    ARM9_CP15_PageTable_Lookup(ARM9, &addr, 0);
+    if (!(addr & ARM9->ITCMMask))
+        ITCM[addr & (ITCM_PhySize-1)] = val;
 
-    Bus9_Store8_Main(ARM9, addr, val);
+    else if ((addr & ARM9->DTCMMask) == ARM9->DTCMBase)
+        DTCM[addr & (DTCM_PhySize-1)] = val;
+
+    else Bus9_Store8_Main(ARM9, addr, val);
 }
