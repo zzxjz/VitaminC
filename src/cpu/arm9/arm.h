@@ -4,6 +4,24 @@
 #include "../shared/arm.h"
 
 
+enum
+{
+	MPU_NOACCESS  = 0,
+	MPU_READ = 	 1<<0,
+	MPU_WRITE =  1<<1,
+	MPU_EXEC =   1<<2,
+	MPU_DCACHE = 1<<3,
+	MPU_BUFFER = 1<<4,
+	MPU_ICACHE = 1<<5,
+
+	MPU_READ_SHIFT = 0,
+	MPU_WRITE_SHIFT,
+	MPU_EXEC_SHIFT,
+	MPU_DCACHE_SHIFT,
+	MPU_BUFFER_SHIFT,
+	MPU_ICACHE_SHIFT,
+};
+
 struct ARM946E_S
 {
 	// registers
@@ -211,6 +229,10 @@ struct ARM946E_S
 	u32 ITCMMask;
 	u32 DTCMMask;
 	u32 DTCMBase;
+	bool Halted;
+	alignas(64) u32 RegionMask[8];
+	alignas(32) u32 RegionBase[8];
+	u8 RegionPerms[2][8];
 };
 
 extern void (*ARM9_InstrLUT[0x1000]) (struct ARM946E_S* ARM9);
@@ -232,6 +254,8 @@ void ARM9_StartFetch(struct ARM946E_S* ARM9);
 void ARM9_StartExec(struct ARM946E_S* ARM9);
 void THUMB9_StartExec(struct ARM946E_S* ARM9);
 void ARM9_RunInterpreter(struct ARM946E_S* ARM9, u64 target);
+
+u8 ARM9_MPU_Lookup(const struct ARM946E_S* ARM9, const u32 addr);
 
 
 // instr implementations

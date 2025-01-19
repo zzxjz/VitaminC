@@ -424,6 +424,15 @@ struct ARM11MPCore
 		u8 IRQPriority[20];
 		u8 IRQConfig[60];
 	} PrivRgn;
+	union
+	{
+		u8 Halted;
+		struct
+		{
+			bool WaitForInterrupt : 1;
+			bool WaitForEvent : 1;
+		};
+	};
 };
 
 extern void (*ARM11_InstrLUT[0x1000]) (struct ARM11MPCore* ARM11);

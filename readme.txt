@@ -27,18 +27,6 @@ Emulation Setup:
 
 
 
-FAQ:
-    Q: WHERE DO I DOWNLOAD POKEMON???
-    A: Your mom's house.
-
-    Q: CAN IT RUN POKEMON?????
-    A: No.
-
-    Q: WHEN WILL IT RUN POKEMON????????
-    A: Probably never if you also want it to run well; Try another emulator.
-
-
-
 Credits:
     Jakly:
         Lead dev; Author; Artist(?); Creator; Uhhh... What other nonsense accolades can I give myself---

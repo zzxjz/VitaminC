@@ -6,6 +6,7 @@
 #include "bus.h"
 #include "../shared/bus.h"
 #include "../arm11/bus.h"
+#include "../../pxi.h"
 
 u8* Bios9;
 const u32 Bios9_Size = 64 * 1024;
@@ -42,6 +43,43 @@ char* Bus9_Init()
 void Bus9_Free()
 {
     free(Bios9);
+    free(ARM9WRAM);
+    free(ITCM);
+    free(DTCM);
+}
+
+u8 Bus9_Load8_IO(struct ARM946E_S* ARM9, const u32 addr)
+{
+    switch(addr)
+    {
+    case 0x10008000: return PXI_Sync[ARM9ID] & 0xFF;
+    case 0x10008001:
+    case 0x10008002: return 0;
+    case 0x10008003: return PXI_Sync[ARM9ID] >> 24;
+
+    default: printf("ARM9 - UNK IO LOAD8: %08X %08X\n", addr, ARM9->PC); return 0;
+    }
+}
+
+u16 Bus9_Load16_IO(struct ARM946E_S* ARM9, const u32 addr)
+{
+    switch(addr)
+    {
+    case 0x10008000: return PXI_Sync[ARM9ID] & 0xFFFF;
+    case 0x10008002: return PXI_Sync[ARM9ID] >> 16;
+        
+    default: printf("ARM9 - UNK IO LOAD16: %08X %08X\n", addr, ARM9->PC); return 0;
+    }
+}
+
+u32 Bus9_Load32_IO(struct ARM946E_S* ARM9, const u32 addr)
+{
+    switch(addr)
+    {
+    case 0x10008000: return PXI_Sync[ARM9ID];
+        
+    default: printf("ARM9 - UNK IO LOAD32: %08X %08X\n", addr, ARM9->PC); return 0;
+    }
 }
 
 u8 Bus9_Load8_Main(struct ARM946E_S* ARM9, const u32 addr)
@@ -51,6 +89,9 @@ u8 Bus9_Load8_Main(struct ARM946E_S* ARM9, const u32 addr)
 
     if ((addr & 0xF8000000) == 0x08000000)
         return ARM9WRAM[addr & (ARM9WRAM_Size-1)];
+
+    if ((addr >= 0x10000000) && addr < 0x10200000) // checkme?
+        return Bus9_Load8_IO(ARM9, addr);
 
     if ((addr >= 0x18000000) && (addr < 0x18600000))
     {
@@ -78,7 +119,7 @@ u8 Bus9_Load8_Main(struct ARM946E_S* ARM9, const u32 addr)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) return bank[addr&(SWRAM_Size-1)];
-        else { printf("ACCESSING UNALLOCATED SWRAM "); }
+        else { printf("ARM9 - ACCESSING UNALLOCATED SWRAM "); }
     }
 
     if ((addr & 0xFFF80000) == 0x1FF80000)
@@ -89,7 +130,7 @@ u8 Bus9_Load8_Main(struct ARM946E_S* ARM9, const u32 addr)
     if ((addr & 0xF8000000) == 0x28000000)
         return FCRAM[1][addr & (FCRAM_Size-1)];
 
-    printf("UNK LOAD8: %08X %08X\n", addr, ARM9->PC);
+    printf("ARM9 - UNK LOAD8: %08X %08X\n", addr, ARM9->PC);
     return 0;
 }
 
@@ -100,6 +141,9 @@ u16 Bus9_Load16_Main(struct ARM946E_S* ARM9, const u32 addr)
 
     if ((addr & 0xF8000000) == 0x08000000)
         return *(u16*)&ARM9WRAM[addr & (ARM9WRAM_Size-1)];
+
+    if ((addr >= 0x10000000) && addr < 0x10200000) // checkme?
+        return Bus9_Load16_IO(ARM9, addr);
 
     if ((addr >= 0x18000000) && (addr < 0x18600000))
     {
@@ -127,7 +171,7 @@ u16 Bus9_Load16_Main(struct ARM946E_S* ARM9, const u32 addr)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) return *(u16*)&bank[addr&(SWRAM_Size-1)];
-        else { printf("ACCESSING UNALLOCATED SWRAM "); }
+        else { printf("ARM9 - ACCESSING UNALLOCATED SWRAM "); }
     }
 
     if ((addr & 0xFFF80000) == 0x1FF80000)
@@ -138,7 +182,7 @@ u16 Bus9_Load16_Main(struct ARM946E_S* ARM9, const u32 addr)
     if ((addr & 0xF8000000) == 0x28000000)
         return *(u16*)&FCRAM[1][addr & (FCRAM_Size-1)];
 
-    printf("UNK LOAD16: %08X %08X\n", addr, ARM9->PC);
+    printf("ARM9 - UNK LOAD16: %08X %08X\n", addr, ARM9->PC);
     return 0;
 }
 
@@ -149,6 +193,9 @@ u32 Bus9_Load32_Main(struct ARM946E_S* ARM9, const u32 addr)
 
     if ((addr & 0xF8000000) == 0x08000000)
         return *(u32*)&ARM9WRAM[addr & (ARM9WRAM_Size-1)];
+
+    if ((addr >= 0x10000000) && addr < 0x10200000) // checkme?
+        return Bus9_Load32_IO(ARM9, addr);
 
     if ((addr >= 0x18000000) && (addr < 0x18600000))
     {
@@ -176,7 +223,7 @@ u32 Bus9_Load32_Main(struct ARM946E_S* ARM9, const u32 addr)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) return *(u32*)&bank[addr&(SWRAM_Size-1)];
-        else { printf("ACCESSING UNALLOCATED SWRAM "); }
+        else { printf("ARM9 - ACCESSING UNALLOCATED SWRAM "); }
     }
 
     if ((addr & 0xFFF80000) == 0x1FF80000)
@@ -192,10 +239,50 @@ u32 Bus9_Load32_Main(struct ARM946E_S* ARM9, const u32 addr)
     return 0;
 }
 
+void Bus9_Store8_IO(struct ARM946E_S* ARM9, const u32 addr, const u8 val)
+{
+    switch(addr)
+    {
+    case 0x10008000: break;
+    case 0x10008001: PXISync_WriteSend(val, ARM9ID); break;
+    case 0x10008002: break;
+    case 0x10008003: PXI9Sync_WriteIRQ(val); break;
+
+    default: printf("ARM9 - UNK IO STORE8: %08X %08X\n", addr, ARM9->PC); break;
+    }
+}
+
+void Bus9_Store16_IO(struct ARM946E_S* ARM9, const u32 addr, const u8 val)
+{
+    switch(addr)
+    {
+    case 0x10008000: PXISync_WriteSend(val >> 8, ARM9ID); break;
+    case 0x10008002: PXI9Sync_WriteIRQ(val >> 8); break;
+        
+    default: printf("ARM9 - UNK IO STORE16: %08X %08X\n", addr, ARM9->PC); break;
+    }
+}
+
+void Bus9_Store32_IO(struct ARM946E_S* ARM9, const u32 addr, const u8 val)
+{
+    switch(addr)
+    {
+    case 0x10008000:
+        PXISync_WriteSend((val >> 8 & 0xFF), ARM9ID);
+        PXI9Sync_WriteIRQ(val >> 24);
+        break;
+        
+    default: printf("ARM9 - UNK IO STORE32: %08X %08X\n", addr, ARM9->PC); break;
+    }
+}
+
 void Bus9_Store8_Main(struct ARM946E_S* ARM9, const u32 addr, const u8 val)
 {
     if ((addr & 0xF8000000) == 0x08000000)
         ARM9WRAM[addr & (ARM9WRAM_Size-1)] = val;
+
+    else if ((addr >= 0x10000000) && addr < 0x10200000) // checkme?
+        Bus9_Store8_IO(ARM9, addr, val);
 
     else if ((addr >= 0x18000000) && (addr < 0x18600000))
     {
@@ -219,7 +306,7 @@ void Bus9_Store8_Main(struct ARM946E_S* ARM9, const u32 addr, const u8 val)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) bank[addr&(SWRAM_Size-1)] = val;
-        else { printf("UNALLOCATED SWRAM STORE8!! %08X %02X %08X\n", addr, val, ARM9->PC); }
+        else { printf("ARM9 - UNALLOCATED SWRAM STORE8!! %08X %02X %08X\n", addr, val, ARM9->PC); }
     }
 
     else if ((addr & 0xFFF80000) == 0x1FF80000)
@@ -230,13 +317,16 @@ void Bus9_Store8_Main(struct ARM946E_S* ARM9, const u32 addr, const u8 val)
     else if ((addr & 0xF8000000) == 0x28000000)
         FCRAM[1][addr & (FCRAM_Size-1)] = val;
 
-    else printf("UNK STORE8: %08X %02X %08X\n", addr, val, ARM9->PC);
+    else printf("ARM9 - UNK STORE8: %08X %02X %08X\n", addr, val, ARM9->PC);
 }
 
 void Bus9_Store16_Main(struct ARM946E_S* ARM9, const u32 addr, const u16 val)
 {
     if ((addr & 0xF8000000) == 0x08000000)
         *(u16*)&ARM9WRAM[addr & (ARM9WRAM_Size-1)] = val;
+
+    else if ((addr >= 0x10000000) && addr < 0x10200000) // checkme?
+        Bus9_Store16_IO(ARM9, addr, val);
 
     else if ((addr >= 0x18000000) && (addr < 0x18600000))
     {
@@ -260,7 +350,7 @@ void Bus9_Store16_Main(struct ARM946E_S* ARM9, const u32 addr, const u16 val)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) *(u16*)&bank[addr&(SWRAM_Size-1)] = val;
-        else { printf("UNALLOCATED SWRAM STORE16!! %08X %04X %08X\n", addr, val, ARM9->PC); }
+        else { printf("ARM9 - UNALLOCATED SWRAM STORE16!! %08X %04X %08X\n", addr, val, ARM9->PC); }
     }
 
     else if ((addr & 0xFFF80000) == 0x1FF80000)
@@ -271,13 +361,16 @@ void Bus9_Store16_Main(struct ARM946E_S* ARM9, const u32 addr, const u16 val)
     else if ((addr & 0xF8000000) == 0x28000000)
         *(u16*)&FCRAM[1][addr & (FCRAM_Size-1)] = val;
 
-    else printf("UNK STORE16: %08X %04X %08X\n", addr, val, ARM9->PC);
+    else printf("ARM9 - UNK STORE16: %08X %04X %08X\n", addr, val, ARM9->PC);
 }
 
 void Bus9_Store32_Main(struct ARM946E_S* ARM9, const u32 addr, const u32 val)
 {
     if ((addr & 0xF8000000) == 0x08000000)
         *(u32*)&ARM9WRAM[addr & (ARM9WRAM_Size-1)] = val;
+
+    else if ((addr >= 0x10000000) && addr < 0x10200000) // checkme?
+        Bus9_Store32_IO(ARM9, addr, val);
 
     else if ((addr >= 0x18000000) && (addr < 0x18600000))
     {
@@ -301,7 +394,7 @@ void Bus9_Store32_Main(struct ARM946E_S* ARM9, const u32 addr, const u32 val)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) *(u32*)&bank[addr&(SWRAM_Size-1)] = val;
-        else { printf("UNALLOCATED SWRAM STORE32!! %08X %08X %08X\n", addr, val, ARM9->PC); }
+        else { printf("ARM9 - UNALLOCATED SWRAM STORE32!! %08X %08X %08X\n", addr, val, ARM9->PC); }
     }
 
     else if ((addr & 0xFFF80000) == 0x1FF80000)
@@ -312,7 +405,7 @@ void Bus9_Store32_Main(struct ARM946E_S* ARM9, const u32 addr, const u32 val)
     else if ((addr & 0xF8000000) == 0x28000000)
         *(u32*)&FCRAM[1][addr & (FCRAM_Size-1)] = val;
 
-    else printf("UNK STORE32: %08X %08X %08X\n", addr, val, ARM9->PC);
+    else printf("ARM9 - UNK STORE32: %08X %08X %08X\n", addr, val, ARM9->PC);
 }
 
 u32 Bus9_InstrLoad32(struct ARM946E_S* ARM9, u32 addr)
@@ -327,7 +420,7 @@ u32 Bus9_InstrLoad32(struct ARM946E_S* ARM9, u32 addr)
 
 u32 Bus9_Load32(struct ARM946E_S* ARM9, u32 addr)
 {
-    if (addr & 0x3) printf("UNALIGNED LOAD32 %08X %08X\n", addr, ARM9->PC);
+    if (addr & 0x3) printf("ARM9 - UNALIGNED LOAD32: %08X %08X\n", addr, ARM9->PC);
     addr &= ~0x3;
 
     if (!ARM9->CP15.Control.ITCMWriteOnly && !(addr & ARM9->ITCMMask))
@@ -341,7 +434,7 @@ u32 Bus9_Load32(struct ARM946E_S* ARM9, u32 addr)
 
 u16 Bus9_Load16(struct ARM946E_S* ARM9, u32 addr)
 {
-    if (addr & 0x1) printf("UNALIGNED LOAD16 %08X %08X\n", addr, ARM9->PC);
+    if (addr & 0x1) printf("ARM9 - UNALIGNED LOAD16 %08X %08X\n", addr, ARM9->PC);
     addr &= ~0x1;
 
     if (!ARM9->CP15.Control.ITCMWriteOnly && !(addr & ARM9->ITCMMask))

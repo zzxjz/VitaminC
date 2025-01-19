@@ -14,6 +14,12 @@ typedef uint32_t u32;
 typedef int64_t s64;
 typedef uint64_t u64;
 
+enum
+{
+    ARM9ID = 0,
+    ARM11ID = 1
+};
+
 struct Pattern
 {
     u32 bits;

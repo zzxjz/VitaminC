@@ -279,9 +279,10 @@ u32 ARM9_CodeFetch(struct ARM946E_S* ARM9)
 
 void ARM9_Branch(struct ARM946E_S* ARM9, u32 addr, const bool restore)
 {
+#if 1
 	if (addr != 0xFFFF8208)
 		printf("ARM9: Jumping to %08X from %08X via %08X\n", addr, ARM9->PC, ARM9->Instr[0].Data);
-
+#endif
 	if (restore)
 	{
 		const u32 spsr = *ARM9->SPSR;
@@ -413,9 +414,16 @@ void ARM9_RunInterpreter(struct ARM946E_S* ARM9, u64 target)
 	while (ARM9->Timestamp <= target)
 	{
         //(ARM9->NextStep)(ARM9);
-		ARM9_StartFetch(ARM9);
-		if (ARM9->Thumb) THUMB9_StartExec(ARM9);
-		else ARM9_StartExec(ARM9);
+		if (ARM9->Halted)
+		{
+			
+		}
+		else
+		{
+			ARM9_StartFetch(ARM9);
+			if (ARM9->Thumb) THUMB9_StartExec(ARM9);
+			else ARM9_StartExec(ARM9);
+		}
 		ARM9->Timestamp++;
 	}
 }

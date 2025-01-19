@@ -33,11 +33,11 @@ int main()
         return 0;
     }
 
-    u64 target = 8;
+    u64 target = 1;
     while (true)
     {
         //printf("CPU0 TIME!\n");
-        //ARM11_RunInterpreter(&_ARM11[0], target);
+        ARM11_RunInterpreter(&_ARM11[0], target);
         /*printf("CPU1 TIME!\n");
         ARM11_RunInterpreter(&_ARM11[1], target);
         printf("CPU2 TIME!\n");
@@ -47,7 +47,7 @@ int main()
         printf("CPU9 TIME!\n");
         */
         ARM9_RunInterpreter(&_ARM9, target);
-        target += 8;
+        target += 1;
     }
 
     Emu_Free();

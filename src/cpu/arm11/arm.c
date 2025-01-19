@@ -28,7 +28,7 @@ void THUMB11_DecodeMiscThumb(struct ARM11MPCore* ARM11)
 	//CHECK(101000000, 111100000, NULL) // rev
 	//CHECK(111000000, 111000000, NULL) // bkpt
 	//NULL();
-	printf("UNIMPLEMENTED MISC THUMB INSTRUCTION %04X\n", ARM11->Instr.Data);
+	printf("ARM11 - UNIMPLEMENTED MISC THUMB INSTRUCTION %04X\n", ARM11->Instr.Data);
 }
 
 #undef CHECK
@@ -274,12 +274,12 @@ void ARM11_MSR(struct ARM11MPCore* ARM11, u32 val)
 	}
 	else
 	{
-		if (val & 0x01000020) printf("MSR SETTING T OR J BIT!!! PANIC!!!!!!\n");
+		if (val & 0x01000020) printf("ARM11 - MSR SETTING T OR J BIT!!! PANIC!!!!!!\n");
 
 		val |= ARM11->CPSR & ~writemask;
 		ARM11_UpdateMode(ARM11, ARM11->Mode, val&0x1F);
 		ARM11->CPSR = val;
-		printf("CPSR UPDATE: %08X\n", ARM11->CPSR);
+		printf("ARM11 - CPSR UPDATE: %08X\n", ARM11->CPSR);
 	}
 }
 
@@ -311,17 +311,17 @@ void ARM11_MSRImm_Hints(struct ARM11MPCore* ARM11)
 		case 0x00: // nop
 			return;
 		case 0x01: // yield
-			printf("UNIMPLEMENTED HINT: YIELD!!!\n"); return;
+			printf("ARM11 - UNIMPLEMENTED HINT: YIELD!!!\n"); return;
 		case 0x02: // wfe (wait for event)
-			printf("UNIMPLEMENTED HINT: WFE\n"); return;
+			ARM11->WaitForEvent = true; return;
 		case 0x03: // wfi (wait for interrupt)
-			printf("UNIMPLEMENTED HINT: WFI\n"); return;
+			ARM11->WaitForInterrupt = true; return;
 		case 0x04: // sev (send event)
-			printf("UNIMPLEMENTED HINT: SEV\n"); return;
+			printf("ARM11 - UNIMPLEMENTED HINT: SEV\n"); return;
 		case 0x14: // csdb (consumption of speculative data barrier?????????)
-			printf("UNIMPLEMENTED HINT: CSDB\n"); return;
+			printf("ARM11 - UNIMPLEMENTED HINT: CSDB\n"); return;
 		default:
-			printf("INVALID HINT %02X\n", op2); return;
+			printf("ARM11 - INVALID HINT %02X\n", op2); return;
 		}
 	}
 }
@@ -333,19 +333,20 @@ u32 ARM11_CodeFetch(struct ARM11MPCore* ARM11)
 
 void ARM11_Branch(struct ARM11MPCore* ARM11, u32 addr, const bool restore)
 {
+#if 1
 	if (addr != 0x00019220 &&
 		addr != 0x0001920C &&
 		//addr != 0x00018084 &&
 		addr != 0x00014B45 &&
 		addr != 0x00012103)
-		printf("Jumping to %08X from %08X via %08X\n", addr, ARM11->PC, ARM11->Instr.Data);
-
+		printf("ARM11: Jumping to %08X from %08X via %08X\n", addr, ARM11->PC, ARM11->Instr.Data);
+#endif
 	if (restore)
 	{
 		const u32 spsr = *ARM11->SPSR;
 		ARM11_UpdateMode(ARM11, ARM11->Mode, spsr & 0x1F);
 		ARM11->CPSR = spsr;
-		printf("CPSR RESTORE: %08X\n", ARM11->CPSR);
+		printf("ARM11 - CPSR RESTORE: %08X\n", ARM11->CPSR);
 
 		addr &= ~0x1;
 		addr |= ARM11->Thumb;
@@ -420,7 +421,7 @@ void ARM11_StartExec(struct ARM11MPCore* ARM11)
 			(ARM11_InstrLUT[decodebits])(ARM11);
 		else
 		{
-			printf("UNIMPL ARM INSTR: %08X @ %08X!!!\n", ARM11->Instr.Data, ARM11->PC);
+			printf("ARM11 - UNIMPL ARM INSTR: %08X @ %08X!!!\n", ARM11->Instr.Data, ARM11->PC);
 			for (int i = 0; i < 16; i++) printf("%i, %08X ", i, ARM11->R[i]);
 			while (true)
 				;
@@ -435,7 +436,7 @@ void ARM11_StartExec(struct ARM11MPCore* ARM11)
 		if (func) func(ARM11);
 		else
 		{
-			printf("UNCOND: %08X!!!!\n", ARM11->Instr.Data);
+			printf("ARM11 - UNCOND: %08X!!!!\n", ARM11->Instr.Data);
 			for (int i = 0; i < 16; i++) printf("%i, %08X ", i, ARM11->R[i]);
 			while (true)
 				;
@@ -461,7 +462,7 @@ void THUMB11_StartExec(struct ARM11MPCore* ARM11)
 		(THUMB11_InstrLUT[decodebits])(ARM11);
 	else
 	{
-		printf("UNIMPL THUMB INSTR: %04X @ %08X\n", instr, ARM11->PC);
+		printf("ARM11 - UNIMPL THUMB INSTR: %04X @ %08X\n", instr, ARM11->PC);
 		while(true)
 			;
 	}
@@ -473,9 +474,30 @@ void ARM11_RunInterpreter(struct ARM11MPCore* ARM11, u64 target)
 	while (ARM11->Timestamp <= target)
 	{
         //(ARM11->NextStep)(ARM11);
-		ARM11_StartFetch(ARM11);
-		if (ARM11->Thumb) THUMB11_StartExec(ARM11);
-		else ARM11_StartExec(ARM11);
+		if (ARM11->Halted)
+		{
+			if (ARM11->WaitForInterrupt)
+			{
+				// wake up on irq, fiq, or asynch abt regardless of masking out
+			}
+			else if (ARM11->WaitForEvent)
+			{
+				// wake up on:
+				// sev executed by any other arm11
+				// irq if !i bit of cpsr
+				// fiq if !f bit of cpsr
+				// async abt if !a bit of cpsr
+				// timer event stream?
+				// "implementation defined events"
+				// event register...?
+			}
+		}
+		else
+		{
+			ARM11_StartFetch(ARM11);
+			if (ARM11->Thumb) THUMB11_StartExec(ARM11);
+			else ARM11_StartExec(ARM11);
+		}
 		ARM11->Timestamp++;
 		//printf("times: %li %li\n", ARM11->Timestamp, target);
 	}

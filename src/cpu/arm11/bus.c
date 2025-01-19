@@ -5,6 +5,7 @@
 #include "../../utils.h"
 #include "bus.h"
 #include "../shared/bus.h"
+#include "../../pxi.h"
 
 u8* Bios11;
 const u32 Bios11_Size = 64 * 1024;
@@ -56,13 +57,29 @@ void Bus11_Free()
     free(Bios11);
 }
 
+u8 Bus11_Load8_IO(struct ARM11MPCore* ARM11, const u32 addr)
+{
+    switch (addr)
+    {
+    case 0x10163000: return PXI_Sync[ARM11ID] & 0xFF;
+    case 0x10163001:
+    case 0x10163002: return 0;
+    case 0x10163003: return PXI_Sync[ARM11ID] >> 24;
+
+    default: printf("ARM11 - UNK IO LOAD8: %08X %08X\n", addr, ARM11->PC); return 0;
+    }
+}
+
 u16 Bus11_Load16_IO(struct ARM11MPCore* ARM11, const u32 addr)
 {
     switch(addr)
     {
-        case 0x10140FFC: return SOCInfo;
+    case 0x10140FFC: return SOCInfo;
 
-        default: printf("UNK IO LOAD16: %08X %08X\n", addr, ARM11->PC); return 0;
+    case 0x10163000: return PXI_Sync[ARM11ID] & 0xFFFF;
+    case 0x10163002: return PXI_Sync[ARM11ID] >> 16;
+
+    default: printf("ARM11 - UNK IO LOAD16: %08X %08X\n", addr, ARM11->PC); return 0;
     }
 }
 
@@ -70,10 +87,13 @@ u32 Bus11_Load32_IO(struct ARM11MPCore* ARM11, const u32 addr)
 {
     switch(addr)
     {
-        case 0x10141200: return CFG11.GPUCnt.Data;
-        case 0x10400030: return GPUIO.VRAMPower.Data;
+    case 0x10141200: return CFG11.GPUCnt.Data;
 
-        default: printf("UNK IO LOAD32: %08X %08X\n", addr, ARM11->PC); return 0;
+    case 0x10163000: return PXI_Sync[ARM11ID];
+
+    case 0x10400030: return GPUIO.VRAMPower.Data;
+
+    default: printf("ARM11 - UNK IO LOAD32: %08X %08X\n", addr, ARM11->PC); return 0;
     }
 }
 
@@ -102,7 +122,7 @@ u8 Bus11_Load8_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr)
         case 0x1820 ... 0x18FF: return IRQTarget[(addr & 0xFF) - 0x20] | IRQTarget[(addr & 0xFF) - 0x1F] << 8;
 
     default:
-        printf("UNK MPCORE PRIV RGN LOAD8: %08X %08X\n", addr, ARM11->PC);
+        printf("ARM11 - UNK MPCORE PRIV RGN LOAD8: %08X %08X\n", addr, ARM11->PC);
         return 0;
     }
 }
@@ -130,7 +150,7 @@ u16 Bus11_Load16_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr)
         case 0x1820 ... 0x18FE: return IRQTarget[(addr & 0xFE) - 0x20] | IRQTarget[(addr & 0xFE) - 0x1F] << 8;
 
     default:
-        printf("UNK MPCORE PRIV RGN LOAD16: %08X %08X\n", addr, ARM11->PC);
+        printf("ARM11 - UNK MPCORE PRIV RGN LOAD16: %08X %08X\n", addr, ARM11->PC);
         return 0;
     }
 }
@@ -213,7 +233,7 @@ u32 Bus11_Load32_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr)
 
 
     default: 
-        printf("UNK MPCORE PRIV RGN LOAD32: %08X %08X\n", addr, ARM11->PC);
+        printf("ARM11 - UNK MPCORE PRIV RGN LOAD32: %08X %08X\n", addr, ARM11->PC);
         return 0;
     }
 }
@@ -222,6 +242,9 @@ u8 Bus11_Load8_Main(struct ARM11MPCore* ARM11, const u32 addr)
 {
     if ((addr < 0x20000) || (addr >= 0xFFFF0000))
         return Bios11[addr & (Bios11_Size-1)];
+
+    if ((addr >= 0x10100000) && addr < 0x17E00000) // checkme?
+        return Bus11_Load8_IO(ARM11, addr);
 
     if ((addr & 0xFFFFE000) == 0x17E00000)
         return Bus11_Load8_MPCorePriv(ARM11, addr);
@@ -252,7 +275,7 @@ u8 Bus11_Load8_Main(struct ARM11MPCore* ARM11, const u32 addr)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) return bank[addr&(SWRAM_Size-1)];
-        else { printf("ACCESSING UNALLOCATED SWRAM "); }
+        else { printf("ARM11 - ACCESSING UNALLOCATED SWRAM "); }
     }
 
     if ((addr & 0xFFF80000) == 0x1FF80000)
@@ -263,7 +286,7 @@ u8 Bus11_Load8_Main(struct ARM11MPCore* ARM11, const u32 addr)
     if ((addr & 0xF8000000) == 0x28000000)
         return FCRAM[1][addr & (FCRAM_Size-1)];
 
-    printf("UNK LOAD8: %08X %08X\n", addr, ARM11->PC);
+    printf("ARM11 - UNK LOAD8: %08X %08X\n", addr, ARM11->PC);
     return 0;
 }
 
@@ -304,7 +327,7 @@ u16 Bus11_Load16_Main(struct ARM11MPCore* ARM11, const u32 addr)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) return *(u16*)&bank[addr&(SWRAM_Size-1)];
-        else { printf("ACCESSING UNALLOCATED SWRAM "); }
+        else { printf("ARM11 - ACCESSING UNALLOCATED SWRAM "); }
     }
 
     if ((addr & 0xFFF80000) == 0x1FF80000)
@@ -315,7 +338,7 @@ u16 Bus11_Load16_Main(struct ARM11MPCore* ARM11, const u32 addr)
     if ((addr & 0xF8000000) == 0x28000000)
         return *(u16*)&FCRAM[1][addr & (FCRAM_Size-1)];
 
-    printf("UNK LOAD16: %08X %08X\n", addr, ARM11->PC);
+    printf("ARM11 - UNK LOAD16: %08X %08X\n", addr, ARM11->PC);
     return 0;
 }
 
@@ -356,7 +379,7 @@ u32 Bus11_Load32_Main(struct ARM11MPCore* ARM11, const u32 addr)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) return *(u32*)&bank[addr&(SWRAM_Size-1)];
-        else { printf("ACCESSING UNALLOCATED SWRAM "); }
+        else { printf("ARM11 - ACCESSING UNALLOCATED SWRAM "); }
     }
 
     if ((addr & 0xFFF80000) == 0x1FF80000)
@@ -367,7 +390,7 @@ u32 Bus11_Load32_Main(struct ARM11MPCore* ARM11, const u32 addr)
     if ((addr & 0xF8000000) == 0x28000000)
         return *(u32*)&FCRAM[1][addr & (FCRAM_Size-1)];
 
-    printf("UNK LOAD32: %08X %08X\n", addr, ARM11->PC);
+    printf("ARM11 - UNK LOAD32: %08X %08X\n", addr, ARM11->PC);
     return 0;
 }
 
@@ -377,7 +400,25 @@ void Bus11_Store8_IO(struct ARM11MPCore* ARM11, const u32 addr, const u8 val)
     {
         case 0x10140000 ... 0x1014000F: MapSWRAM(addr & 0x8, addr & 0x7, val); break;
 
-        default: printf("UNK IO STORE8 %08X %02X %08X\n", addr, val, ARM11->PC); break;
+        case 0x10163000: break;
+        case 0x10163001: PXISync_WriteSend(val, ARM11ID); break;
+        case 0x10163002: break;
+        case 0x10163003: PXI11Sync_WriteIRQ(val); break;
+
+        default: printf("ARM11 - UNK IO STORE8 %08X %02X %08X\n", addr, val, ARM11->PC); break;
+    }
+}
+
+void Bus11_Store16_IO(struct ARM11MPCore* ARM11, const u32 addr, const u16 val)
+{
+    switch(addr)
+    {
+        case 0x10140000 ... 0x1014000F: MapSWRAM(addr & 0x8, addr & 0x7, val); break;
+
+        case 0x10163000: PXISync_WriteSend(val >> 8, ARM11ID); break;
+        case 0x10163002: PXI11Sync_WriteIRQ(val >> 8); break;
+
+        default: printf("ARM11 - UNK IO STORE16 %08X %02X %08X\n", addr, val, ARM11->PC); break;
     }
 }
 
@@ -386,9 +427,15 @@ void Bus11_Store32_IO(struct ARM11MPCore* ARM11, const u32 addr, const u32 val)
     switch (addr)
     {
         case 0x10141200: CFG11.GPUCnt.Data = val & 0x10075; break;
+
+        case 0x10163000:
+            PXISync_WriteSend((val >> 8 & 0xFF), ARM11ID);
+            PXI11Sync_WriteIRQ(val >> 24);
+            break;
+
         case 0x10400030: GPUIO.VRAMPower.Data = val | 0xFFFFF0FF; break;
 
-        default: printf("UNK IO STORE32 %08X %08X %08X\n", addr, val, ARM11->PC); break;
+        default: printf("ARM11 - UNK IO STORE32 %08X %08X %08X\n", addr, val, ARM11->PC); break;
     }
 }
 
@@ -410,7 +457,7 @@ void Bus11_Store8_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, const u8
     // irq enable set
     case 0x1102 ... 0x111F:
         IRQEnable[(addr & 0x1F)-2] |= val;
-        printf("IRQ MASK: ");
+        printf("ARM11 - IRQ MASK: ");
         for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
         printf("FFFF\n");
         break;
@@ -418,7 +465,7 @@ void Bus11_Store8_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, const u8
     // irq enable clear    
     case 0x1182 ... 0x119F:
         IRQEnable[(addr & 0x1F)-2] &= ~val;
-        printf("IRQ MASK: ");
+        printf("ARM11 - IRQ MASK: ");
         for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
         printf("FFFF\n");
         break;
@@ -440,7 +487,7 @@ void Bus11_Store8_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, const u8
     case 0x1C04 ... 0x1C07: break;
     case 0x1C08 ... 0x1C3F: ARM11->PrivRgn.IRQConfig[(addr & 0x3C) - 4] = val; break;
 
-    default: printf("UNK MPCORE PRIV RGN STORE8: %08X %02X %08X\n", addr, val, ARM11->PC); break;
+    default: printf("ARM11 - UNK MPCORE PRIV RGN STORE8: %08X %02X %08X\n", addr, val, ARM11->PC); break;
     }
 }
 
@@ -459,7 +506,7 @@ void Bus11_Store16_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, u16 val
     case 0x1102 ... 0x111E:
         IRQEnable[(addr & 0x1E)-2] |= val;
         IRQEnable[(addr & 0x1E)-1] |= val >> 8;
-        printf("IRQ MASK: ");
+        printf("ARM11 - IRQ MASK: ");
         for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
         printf("FFFF\n");
         break;
@@ -468,7 +515,7 @@ void Bus11_Store16_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, u16 val
     case 0x1182 ... 0x119E:
         IRQEnable[(addr & 0x1E)-2] &= ~val;
         IRQEnable[(addr & 0x1E)-1] &= ~val >> 8;
-        printf("IRQ MASK: ");
+        printf("ARM11 - IRQ MASK: ");
         for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
         printf("FFFF\n");
         break;
@@ -517,7 +564,7 @@ void Bus11_Store16_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, u16 val
         ARM11->PrivRgn.IRQConfig[(addr & 0x3C) - 3] = val >> 8;
         break;
 
-    default: printf("UNK MPCORE PRIV RGN STORE16: %08X %04X %08X\n", addr, val, ARM11->PC); break;
+    default: printf("ARM11 - UNK MPCORE PRIV RGN STORE16: %08X %04X %08X\n", addr, val, ARM11->PC); break;
     }
 }
 
@@ -599,7 +646,7 @@ void Bus11_Store32_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, u32 val
     case 0x1100:
         IRQEnable[0] |= val >> 16;
         IRQEnable[1] |= val >> 24;
-        printf("IRQ MASK: ");
+        printf("ARM11 - IRQ MASK: ");
         for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
         printf("FFFF\n");
         break;
@@ -608,7 +655,7 @@ void Bus11_Store32_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, u32 val
         IRQEnable[(addr & 0x1C)-1] |= val >> 8;
         IRQEnable[(addr & 0x1C)+0] |= val >> 16;
         IRQEnable[(addr & 0x1C)+1] |= val >> 24;
-        printf("IRQ MASK: ");
+        printf("ARM11 - IRQ MASK: ");
         for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
         printf("FFFF\n");
         break;
@@ -616,7 +663,7 @@ void Bus11_Store32_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, u32 val
     case 0x1180:
         IRQEnable[0] &= ~val >> 16;
         IRQEnable[1] &= ~val >> 24;
-        printf("IRQ MASK: ");
+        printf("ARM11 - IRQ MASK: ");
         for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
         printf("FFFF\n");
         break;
@@ -625,7 +672,7 @@ void Bus11_Store32_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, u32 val
         IRQEnable[(addr & 0x1C)-1] &= ~val >> 8;
         IRQEnable[(addr & 0x1C)+0] &= ~val >> 16;
         IRQEnable[(addr & 0x1C)+1] &= ~val >> 24;
-        printf("IRQ MASK: ");
+        printf("ARM11 - IRQ MASK: ");
         for (int i = 29; i > 0; i--) printf("%02X", IRQEnable[i]);
         printf("FFFF\n");
         break;
@@ -676,7 +723,7 @@ void Bus11_Store32_MPCorePriv(struct ARM11MPCore* ARM11, const u32 addr, u32 val
         ARM11->PrivRgn.IRQConfig[(addr & 0x3C) - 1] = val >> 24;
         break;
 
-    default: printf("UNK MPCORE PRIV RGN STORE32: %08X %08X %08X\n", addr, val, ARM11->PC); break;
+    default: printf("ARM11 - UNK MPCORE PRIV RGN STORE32: %08X %08X %08X\n", addr, val, ARM11->PC); break;
     }
 }
 
@@ -710,7 +757,7 @@ void Bus11_Store8_Main(struct ARM11MPCore* ARM11, const u32 addr, const u8 val)
     {
         u8* bank = GetSWRAM(addr);
         if (bank) bank[addr&(SWRAM_Size-1)] = val;
-        else { printf("UNALLOCATED SWRAM STORE8!! %08X %02X %08X\n", addr, val, ARM11->PC); }
+        else { printf("ARM11 - UNALLOCATED SWRAM STORE8!! %08X %02X %08X\n", addr, val, ARM11->PC); }
     }
 
     else if ((addr & 0xFFF80000) == 0x1FF80000)
@@ -721,12 +768,15 @@ void Bus11_Store8_Main(struct ARM11MPCore* ARM11, const u32 addr, const u8 val)
     else if ((addr & 0xF8000000) == 0x28000000)
         FCRAM[1][addr & (FCRAM_Size-1)] = val;
 
-    else printf("UNK STORE8: %08X %02X %08X\n", addr, val, ARM11->PC);
+    else printf("ARM11 - UNK STORE8: %08X %02X %08X\n", addr, val, ARM11->PC);
 }
 
 void Bus11_Store16_Main(struct ARM11MPCore* ARM11, const u32 addr, const u16 val)
 {
-    if ((addr & 0xFFFFE000) == 0x17E00000)
+    if ((addr >= 0x10100000) && addr < 0x17E00000) // checkme?
+        Bus11_Store16_IO(ARM11, addr, val);
+
+    else if ((addr & 0xFFFFE000) == 0x17E00000)
         Bus11_Store16_MPCorePriv(ARM11, addr, val);
 
     else if ((addr >= 0x18000000) && (addr < 0x18600000))
@@ -751,7 +801,7 @@ void Bus11_Store16_Main(struct ARM11MPCore* ARM11, const u32 addr, const u16 val
     {
         u8* bank = GetSWRAM(addr);
         if (bank) *(u16*)&bank[addr&(SWRAM_Size-1)] = val;
-        else { printf("UNALLOCATED SWRAM STORE16!! %08X %04X %08X\n", addr, val, ARM11->PC); }
+        else { printf("ARM11 - UNALLOCATED SWRAM STORE16!! %08X %04X %08X\n", addr, val, ARM11->PC); }
     }
 
     else if ((addr & 0xFFF80000) == 0x1FF80000)
@@ -762,7 +812,7 @@ void Bus11_Store16_Main(struct ARM11MPCore* ARM11, const u32 addr, const u16 val
     else if ((addr & 0xF8000000) == 0x28000000)
         *(u16*)&FCRAM[1][addr & (FCRAM_Size-1)] = val;
 
-    else printf("UNK STORE16: %08X %04X %08X\n", addr, val, ARM11->PC);
+    else printf("ARM11 - UNK STORE16: %08X %04X %08X\n", addr, val, ARM11->PC);
 }
 
 void Bus11_Store32_Main(struct ARM11MPCore* ARM11, const u32 addr, const u32 val)
@@ -795,7 +845,7 @@ void Bus11_Store32_Main(struct ARM11MPCore* ARM11, const u32 addr, const u32 val
     {
         u8* bank = GetSWRAM(addr);
         if (bank) *(u32*)&bank[addr&(SWRAM_Size-1)] = val;
-        else { printf("UNALLOCATED SWRAM STORE32!! %08X %08X %08X\n", addr, val, ARM11->PC); }
+        else { printf("ARM11 - UNALLOCATED SWRAM STORE32!! %08X %08X %08X\n", addr, val, ARM11->PC); }
     }
 
     else if ((addr & 0xFFF80000) == 0x1FF80000)
@@ -806,12 +856,12 @@ void Bus11_Store32_Main(struct ARM11MPCore* ARM11, const u32 addr, const u32 val
     else if ((addr & 0xF8000000) == 0x28000000)
         *(u32*)&FCRAM[1][addr & (FCRAM_Size-1)] = val;
 
-    else printf("UNK STORE32: %08X %08X %08X\n", addr, val, ARM11->PC);
+    else printf("ARM11 - UNK STORE32: %08X %08X %08X\n", addr, val, ARM11->PC);
 }
 
 u32 Bus11_PageTableLoad32(struct ARM11MPCore* ARM11, u32 addr)
 {
-    if (addr & 0x3) printf("UNALIGNED PAGE TABLE FETCH??? %08X %08X\n", addr, ARM11->PC);
+    if (addr & 0x3) printf("ARM11 - UNALIGNED PAGE TABLE FETCH??? %08X %08X\n", addr, ARM11->PC);
     addr &= ~0x3;
 
     u32 val = Bus11_Load32_Main(ARM11, addr & ~3);
@@ -832,7 +882,7 @@ u32 Bus11_Load32(struct ARM11MPCore* ARM11, u32 addr)
 {
     ARM11_CP15_PageTable_Lookup(ARM11, &addr, TLB_Read);
 
-    if (addr & 0x3) printf("UNALIGNED LOAD32 %08X %08X\n", addr, ARM11->PC);
+    if (addr & 0x3) printf("ARM11 - UNALIGNED LOAD32 %08X %08X\n", addr, ARM11->PC);
     addr &= ~0x3;
 
     return Bus11_Load32_Main(ARM11, addr);
@@ -842,7 +892,7 @@ u16 Bus11_Load16(struct ARM11MPCore* ARM11, u32 addr)
 {
     ARM11_CP15_PageTable_Lookup(ARM11, &addr, TLB_Read);
 
-    if (addr & 0x1) printf("UNALIGNED LOAD16 %08X %08X\n", addr, ARM11->PC);
+    if (addr & 0x1) printf("ARM11 - UNALIGNED LOAD16 %08X %08X\n", addr, ARM11->PC);
     addr &= ~0x1;
 
     return Bus11_Load16_Main(ARM11, addr);
@@ -859,7 +909,7 @@ void Bus11_Store32(struct ARM11MPCore* ARM11, u32 addr, const u32 val)
 {
     ARM11_CP15_PageTable_Lookup(ARM11, &addr, 0);
 
-    if (addr & 0x3) printf("UNALIGNED STORE32 %08X %08X\n", addr, ARM11->PC);
+    if (addr & 0x3) printf("ARM11 - UNALIGNED STORE32 %08X %08X\n", addr, ARM11->PC);
     addr &= ~0x3;
 
     Bus11_Store32_Main(ARM11, addr, val);
@@ -869,7 +919,7 @@ void Bus11_Store16(struct ARM11MPCore* ARM11, u32 addr, const u16 val)
 {
     ARM11_CP15_PageTable_Lookup(ARM11, &addr, 0);
 
-    if (addr & 0x1) printf("UNALIGNED STORE16 %08X %08X\n", addr, ARM11->PC);
+    if (addr & 0x1) printf("ARM11 - UNALIGNED STORE16 %08X %08X\n", addr, ARM11->PC);
     addr &= ~0x1;
 
     Bus11_Store16_Main(ARM11, addr, val);

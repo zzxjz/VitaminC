@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <string.h>
 #include "../arm.h"
 #include "../../../utils.h"
+#include <immintrin.h>
 
 void ARM9_UpdateITCM(struct ARM946E_S* ARM9)
 {
@@ -34,6 +36,140 @@ void ARM9_UpdateDTCM(struct ARM946E_S* ARM9)
     }
 }
 
+void ARM9_MPU_Update(struct ARM946E_S* ARM9)
+{
+    if (!ARM9->CP15.Control.MPU)
+    {
+        // mpu disabled:
+        // cache and wbuffer are disabled, no exceptions are raised.
+        ARM9->RegionPerms[0][0] = MPU_READ | MPU_WRITE | MPU_EXEC;
+        ARM9->RegionPerms[1][0] = MPU_READ | MPU_WRITE | MPU_EXEC;
+        // this combination of mask and base guarantees the region is hit
+        // thus ensuring that all accesses recieve the proper flags
+        ARM9->RegionMask[0] = 0x00000000;
+        ARM9->RegionBase[0] = 0x00000000;
+    }
+
+    for (int i = 0; i < 8; i++)
+    {
+        if (!(ARM9->CP15.MPURegion[i].Enable)) // check if region is disabled
+        {
+            // this combination of mask and base guarantees the region cannot be hit, effectively disabling it
+            ARM9->RegionMask[i] = 0x00000000;
+            ARM9->RegionBase[i] = 0xFFFFFFFF;
+        }
+
+        u8 userflags;
+        u8 privflags;
+        u8 sharedflags = 0;
+
+        if (ARM9->CP15.Control.DCache) // if dcache enabled globally
+            sharedflags |= ((ARM9->CP15.DCacheConfig >> i) & 0x1) << MPU_DCACHE_SHIFT;
+
+        // write buffer has no disable
+        sharedflags |= ((ARM9->CP15.WBufferControl >> i) & 0x1) << MPU_BUFFER_SHIFT;
+
+        if (ARM9->CP15.Control.ICache) // if icache enabled globally
+            sharedflags |= ((ARM9->CP15.ICacheConfig >> i) & 0x1) << MPU_ICACHE_SHIFT;
+
+        // do the lookup for region perms
+        const u8 dataperms  = ((ARM9->CP15.MPUDataPerms  >> (i*4)) & 0xF);
+        const u8 instrperms = ((ARM9->CP15.MPUInstrPerms >> (i*4)) & 0xF);
+
+        switch(dataperms)
+        {
+        case 0b0000:
+            privflags = MPU_NOACCESS;
+            userflags = MPU_NOACCESS;
+            break;
+        case 0b0001:
+            privflags = MPU_READ | MPU_WRITE;
+            userflags = MPU_NOACCESS;
+            break;
+        case 0b0010:
+            privflags = MPU_READ | MPU_WRITE;
+            userflags = MPU_READ;
+            break;
+        case 0b0011:
+            privflags = MPU_READ | MPU_WRITE;
+            userflags = MPU_READ | MPU_WRITE;
+            break;
+        case 0b0101:
+            privflags = MPU_READ;
+            userflags = MPU_NOACCESS;
+            break;
+        case 0b0110:
+            privflags = MPU_READ;
+            userflags = MPU_READ;
+            break;
+        default:
+            printf("ARM9 - \"UNPREDICTABLE\" MPU DATA REGION SETTINGS!!! %01X\n", dataperms);
+            privflags = MPU_NOACCESS;
+            userflags = MPU_NOACCESS;
+            break;
+        }
+
+        switch(instrperms)
+        {
+        case 0b0000:
+            break;
+        case 0b0001:
+        case 0b0101:
+            privflags |= MPU_EXEC;
+            break;
+        case 0b0010:
+        case 0b0011:
+        case 0b0110:
+            privflags |= MPU_EXEC;
+            userflags |= MPU_EXEC;
+            break;
+        default:
+            printf("ARM9 - \"UNPREDICTABLE\" MPU INSTRUCTION REGION SETTINGS!!! %01X\n", instrperms);
+            break;
+        }
+
+        privflags |= sharedflags;
+        userflags |= sharedflags;
+
+        // calculate the region's bounds
+        // whether an access is within the region or not is determined by taking an address
+        // performing a bitwise AND against a "size mask"
+        // and doing a comparison against the regions "base" address
+        // this works due to the fact that region's base addresses are forcibly aligned to a multiple of their size
+        u32 size = ARM9->CP15.MPURegion[i].Size + 1;
+        if (size < 12) size = 12;
+        ARM9->RegionMask[i] = 0xFFFFFFFF << size;
+        ARM9->RegionBase[i] = ARM9->CP15.MPURegion[i].Base << 12;
+
+        ARM9->RegionPerms[0][i] = userflags;
+        ARM9->RegionPerms[1][i] = privflags;
+    }
+}
+
+u8 ARM9_MPU_Lookup(const struct ARM946E_S* ARM9, const u32 addr)
+{
+#ifdef __AVX2__
+    __m256i addrs;
+    __m256i bases;
+    __m256i masks;
+
+    const u32 tmp[8] = {addr, addr, addr, addr, addr, addr, addr, addr};
+    memcpy(&addrs, tmp, sizeof(addrs));
+    memcpy(&bases, ARM9->RegionBase, sizeof(bases));
+    memcpy(&masks, ARM9->RegionMask, sizeof(masks));
+
+    u8 res = _mm256_movemask_ps(_mm256_castsi256_ps(_mm256_cmpeq_epi32(_mm256_and_si256(addrs, masks), bases)));
+
+    if (!res) return 0;
+    
+    u8 region = __builtin_ctz(res);
+    
+    return ARM9->RegionPerms[ARM9->Mode != MODE_USR][region];
+#else
+    static_assert(0, "NO AVX2 PRESENT; NO FALLBACK CODE FOR MPU LOOKUPS PRESENT; YELL AT JAKLY AND TRY AGAIN LATER :(\n");
+#endif
+}
+
 void ARM9_CP15_Store_Single(struct ARM946E_S* ARM9, u16 cmd, u32 val)
 {
     switch(cmd)
@@ -48,6 +184,7 @@ void ARM9_CP15_Store_Single(struct ARM946E_S* ARM9, u16 cmd, u32 val)
 
         ARM9_UpdateDTCM(ARM9);
         ARM9_UpdateITCM(ARM9);
+        ARM9_MPU_Update(ARM9);
         printf("ARM9 - CP15: CONTROL REG WRITE!!!\n");
         break;
     }
@@ -56,6 +193,7 @@ void ARM9_CP15_Store_Single(struct ARM946E_S* ARM9, u16 cmd, u32 val)
     {
         if (ARM9->Mode == MODE_USR) { printf("ARM9 - USR CP15 WRITE: %04X\n", cmd); break; }
         ARM9->CP15.DCacheConfig = val;
+        ARM9_MPU_Update(ARM9);
         printf("ARM9 - CP15: DCACHE CONFIG WRITE!!!\n");
         break;
     }
@@ -63,6 +201,7 @@ void ARM9_CP15_Store_Single(struct ARM946E_S* ARM9, u16 cmd, u32 val)
     {
         if (ARM9->Mode == MODE_USR) { printf("ARM9 - USR CP15 WRITE: %04X\n", cmd); break; }
         ARM9->CP15.ICacheConfig = val;
+        ARM9_MPU_Update(ARM9);
         printf("ARM9 - CP15: ICACHE CONFIG WRITE!!!\n");
         break;
     }
@@ -70,6 +209,7 @@ void ARM9_CP15_Store_Single(struct ARM946E_S* ARM9, u16 cmd, u32 val)
     {
         if (ARM9->Mode == MODE_USR) { printf("ARM9 - USR CP15 WRITE: %04X\n", cmd); break; }
         ARM9->CP15.WBufferControl = val;
+        ARM9_MPU_Update(ARM9);
         printf("ARM9 - CP15: WRITE BUFFER CONTROL WRITE!!!\n");
         break;
     }
@@ -83,6 +223,7 @@ void ARM9_CP15_Store_Single(struct ARM946E_S* ARM9, u16 cmd, u32 val)
             u8 perm = (val >> (i*2)) & 0x3;
             ARM9->CP15.MPUDataPerms |= perm << (i*4);
         }
+        ARM9_MPU_Update(ARM9);
         printf("ARM9 - CP15: LEGACY MPU DATA PERMISSIONS WRITE!!!\n");
         break;
     }
@@ -95,6 +236,7 @@ void ARM9_CP15_Store_Single(struct ARM946E_S* ARM9, u16 cmd, u32 val)
             u8 perm = (val >> (i*2)) & 0x3;
             ARM9->CP15.MPUInstrPerms |= perm << (i*4);
         }
+        ARM9_MPU_Update(ARM9);
         printf("ARM9 - CP15: MPU LEGACY INSTRUCTION PERMISSIONS WRITE!!!\n");
         break;
     }
@@ -102,6 +244,7 @@ void ARM9_CP15_Store_Single(struct ARM946E_S* ARM9, u16 cmd, u32 val)
     {
         if (ARM9->Mode == MODE_USR) { printf("ARM9 - USR CP15 WRITE: %04X\n", cmd); break; }
         ARM9->CP15.MPUDataPerms = val;
+        ARM9_MPU_Update(ARM9);
         printf("ARM9 - CP15: MPU DATA PERMISSIONS WRITE!!!\n");
         break;
     }
@@ -109,22 +252,25 @@ void ARM9_CP15_Store_Single(struct ARM946E_S* ARM9, u16 cmd, u32 val)
     {
         if (ARM9->Mode == MODE_USR) { printf("ARM9 - USR CP15 WRITE: %04X\n", cmd); break; }
         ARM9->CP15.MPUInstrPerms = val;
+        ARM9_MPU_Update(ARM9);
         printf("ARM9 - CP15: MPU INSTRUCTION PERMISSIONS WRITE!!!\n");
         break;
     }
     
-    case 0x0600:
-    case 0x0610:
-    case 0x0620:
-    case 0x0630:
-    case 0x0640:
-    case 0x0650:
-    case 0x0660:
-    case 0x0670:
+    case 0x0600: case 0x0601:
+    case 0x0610: case 0x0611:
+    case 0x0620: case 0x0621:
+    case 0x0630: case 0x0631:
+    case 0x0640: case 0x0641:
+    case 0x0650: case 0x0651:
+    case 0x0660: case 0x0661:
+    case 0x0670: case 0x0671:
     {
         if (ARM9->Mode == MODE_USR) { printf("ARM9 - USR CP15 WRITE: %04X\n", cmd); break; }
         ARM9->CP15.MPURegion[(cmd >> 4) & 0xF].Data = val & 0xFFFFF03F;
-        printf("ARM9 - CP15: MPU REGION WRITE!!!\n");
+        ARM9_MPU_Update(ARM9);
+        if (cmd & 0x1) printf("ARM9 - CP15: \"UNPREDICTABLE\" MPU REGION WRITE?\n");
+        else printf("ARM9 - CP15: MPU REGION WRITE!!!\n");
         break;
     }
 
@@ -132,6 +278,7 @@ void ARM9_CP15_Store_Single(struct ARM946E_S* ARM9, u16 cmd, u32 val)
     case 0x0F82:
     {
         if (ARM9->Mode == MODE_USR) { printf("ARM9 - USR CP15 WRITE: %04X\n", cmd); break; }
+        ARM9->Halted = true;
         printf("ARM9 - CP15: WAIT FOR INTERRUPT!!!\n");
         break;
     }
@@ -264,14 +411,14 @@ u32 ARM9_CP15_Load_Single(struct ARM946E_S* ARM9, u16 cmd)
     case 0x0502: return ARM9->CP15.MPUDataPerms;
     case 0x0503: return ARM9->CP15.MPUInstrPerms;
 
-    case 0x0600:
-    case 0x0610:
-    case 0x0620:
-    case 0x0630:
-    case 0x0640:
-    case 0x0650:
-    case 0x0660:
-    case 0x0670:
+    case 0x0600: case 0x0601:
+    case 0x0610: case 0x0611:
+    case 0x0620: case 0x0621:
+    case 0x0630: case 0x0631:
+    case 0x0640: case 0x0641:
+    case 0x0650: case 0x0651:
+    case 0x0660: case 0x0661:
+    case 0x0670: case 0x0671:
         return ARM9->CP15.MPURegion[(cmd>>4)&0xF].Data;
 
     case 0x0900: return ARM9->CP15.DCacheLockDown.Data;
