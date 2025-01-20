@@ -6,237 +6,237 @@
 
 enum
 {
-	MPU_NOACCESS  = 0,
-	MPU_READ = 	 1<<0,
-	MPU_WRITE =  1<<1,
-	MPU_EXEC =   1<<2,
-	MPU_DCACHE = 1<<3,
-	MPU_BUFFER = 1<<4,
-	MPU_ICACHE = 1<<5,
+    MPU_NOACCESS  = 0,
+    MPU_READ =      1<<0,
+    MPU_WRITE =  1<<1,
+    MPU_EXEC =   1<<2,
+    MPU_DCACHE = 1<<3,
+    MPU_BUFFER = 1<<4,
+    MPU_ICACHE = 1<<5,
 
-	MPU_READ_SHIFT = 0,
-	MPU_WRITE_SHIFT,
-	MPU_EXEC_SHIFT,
-	MPU_DCACHE_SHIFT,
-	MPU_BUFFER_SHIFT,
-	MPU_ICACHE_SHIFT,
+    MPU_READ_SHIFT = 0,
+    MPU_WRITE_SHIFT,
+    MPU_EXEC_SHIFT,
+    MPU_DCACHE_SHIFT,
+    MPU_BUFFER_SHIFT,
+    MPU_ICACHE_SHIFT,
 };
 
 struct ARM946E_S
 {
-	// registers
-	union alignas(64) 
-	{
-		u32 R[16];
-		struct
-		{
-			u32 R0;
-			u32 R1;
-			u32 R2;
-			u32 R3;
-			u32 R4;
-			u32 R5;
-			u32 R6;
-			u32 R7;
-			u32 R8;
-			u32 R9;
-			u32 R10;
-			u32 R11;
-			u32 R12;
-			u32 SP;
-			u32 LR;
-			u32 PC;
-		};
-	};
-	union
-	{
-		u32 CPSR;
-		struct
-		{
-			u32 Mode : 5;
-			bool Thumb : 1;
-			bool FIQDisable : 1;
-			bool IRQDisable : 1;
-			u32 : 19;
-			bool QSticky : 1;
-			bool Overflow : 1;
-			bool Carry : 1;
-			bool Zero : 1;
-			bool Negative : 1;
-		};
-		struct
-		{
-			u32 : 28;
-			u32 Flags : 4;
-		};
-	};
-	u32* SPSR;
-	union // USR
-	{
-		u32 R[7];
-		struct
-		{
-			u32 R8;
-			u32 R9;
-			u32 R10;
-			u32 R11;
-			u32 R12;
-			u32 SP;
-			u32 LR;
-		};
-	} USR;
-	union // SVC
-	{
-		u32 R[3];
-		struct
-		{
-			u32 SP;
-			u32 LR;
-			u32 SPSR;
-		};
-	} SVC;
-	union // ABT
-	{
-		u32 R[3];
-		struct
-		{
-			u32 SP;
-			u32 LR;
-			u32 SPSR;
-		};
-	} ABT;
-	union // UND
-	{
-		u32 R[3];
-		struct
-		{
-			u32 SP;
-			u32 LR;
-			u32 SPSR;
-		};
-	} UND;
-	union // IRQ
-	{
-		u32 R[3];
-		struct
-		{
-			u32 SP;
-			u32 LR;
-			u32 SPSR;
-		};
-	} IRQ;
-	union // FIQ
-	{
-		u32 R[8];
-		struct
-		{
-			u32 R8;
-			u32 R9;
-			u32 R10;
-			u32 R11;
-			u32 R12;
-			u32 SP;
-			u32 LR;
-			u32 SPSR;
-		};
-	} FIQ;
-	struct Instruction Instr[3];
-	u64 Timestamp;
-	void (*NextStep)(struct ARM946E_S* ARM9);
-	struct
-	{
-		union
-		{
-			u32 Data;
-			struct
-			{
-				bool MPU : 1;
-				bool : 1;
-				bool DCache : 1;
-				u32 : 4;
-				bool BigEndian : 1;
-				u32 : 4;
-				bool ICache : 1;
-				bool HighVector : 1;
-				bool RoundRobin : 1;
-				bool TBitLoadDisable : 1;
-				bool DTCM : 1;
-				bool DTCMWriteOnly : 1;
-				bool ITCM : 1;
-				bool ITCMWriteOnly : 1;
-			};
-		} Control;
-		u8 ICacheConfig;
-		u8 DCacheConfig;
-		u8 WBufferControl;
-		u32 MPUDataPerms;
-		u32 MPUInstrPerms;
-		union
-		{
-			u32 Data;
-			struct
-			{
-				bool Enable : 1;
-				u32 Size : 5;
-				u32 : 6;
-				u32 Base : 20;
-			};
-		} MPURegion[8];
-		union
-		{
-			u32 Data;
-			struct
-			{
-				u32 Index : 2;
-				u32 : 29;
-				bool Load : 1;
-			};
-		} DCacheLockDown;
-		union
-		{
-			u32 Data;
-			struct
-			{
-				u32 Index : 2;
-				u32 : 29;
-				bool Load : 1;
-			};
-		} ICacheLockDown;
-		union
-		{
-			u32 Data;
-			struct
-			{
-				bool : 1;
-				u32 Size : 5;
-				u32 : 6;
-				u32 Base : 20;
-			};
-		} DTCMRegion;
-		union
-		{
-			u32 Data;
-			struct
-			{
-				bool : 1;
-				u32 Size : 5;
-				u32 : 6;
-				u32 Base : 20;
-			};
-		} ITCMRegion;
-		u32 ProcessID;
-	} CP15;
-	u32 ITCMMask;
-	u32 DTCMMask;
-	u32 DTCMBase;
-	union
-	{
-		bool Halted;
-		bool WaitForInterrupt;
-	};
-	alignas(64) u32 RegionMask[8];
-	alignas(32) u32 RegionBase[8];
-	u8 RegionPerms[2][9];
+    // registers
+    union alignas(64) 
+    {
+        u32 R[16];
+        struct
+        {
+            u32 R0;
+            u32 R1;
+            u32 R2;
+            u32 R3;
+            u32 R4;
+            u32 R5;
+            u32 R6;
+            u32 R7;
+            u32 R8;
+            u32 R9;
+            u32 R10;
+            u32 R11;
+            u32 R12;
+            u32 SP;
+            u32 LR;
+            u32 PC;
+        };
+    };
+    union
+    {
+        u32 CPSR;
+        struct
+        {
+            u32 Mode : 5;
+            bool Thumb : 1;
+            bool FIQDisable : 1;
+            bool IRQDisable : 1;
+            u32 : 19;
+            bool QSticky : 1;
+            bool Overflow : 1;
+            bool Carry : 1;
+            bool Zero : 1;
+            bool Negative : 1;
+        };
+        struct
+        {
+            u32 : 28;
+            u32 Flags : 4;
+        };
+    };
+    u32* SPSR;
+    union // USR
+    {
+        u32 R[7];
+        struct
+        {
+            u32 R8;
+            u32 R9;
+            u32 R10;
+            u32 R11;
+            u32 R12;
+            u32 SP;
+            u32 LR;
+        };
+    } USR;
+    union // SVC
+    {
+        u32 R[3];
+        struct
+        {
+            u32 SP;
+            u32 LR;
+            u32 SPSR;
+        };
+    } SVC;
+    union // ABT
+    {
+        u32 R[3];
+        struct
+        {
+            u32 SP;
+            u32 LR;
+            u32 SPSR;
+        };
+    } ABT;
+    union // UND
+    {
+        u32 R[3];
+        struct
+        {
+            u32 SP;
+            u32 LR;
+            u32 SPSR;
+        };
+    } UND;
+    union // IRQ
+    {
+        u32 R[3];
+        struct
+        {
+            u32 SP;
+            u32 LR;
+            u32 SPSR;
+        };
+    } IRQ;
+    union // FIQ
+    {
+        u32 R[8];
+        struct
+        {
+            u32 R8;
+            u32 R9;
+            u32 R10;
+            u32 R11;
+            u32 R12;
+            u32 SP;
+            u32 LR;
+            u32 SPSR;
+        };
+    } FIQ;
+    struct Instruction Instr[3];
+    u64 Timestamp;
+    void (*NextStep)(struct ARM946E_S* ARM9);
+    struct
+    {
+        union
+        {
+            u32 Data;
+            struct
+            {
+                bool MPU : 1;
+                bool : 1;
+                bool DCache : 1;
+                u32 : 4;
+                bool BigEndian : 1;
+                u32 : 4;
+                bool ICache : 1;
+                bool HighVector : 1;
+                bool RoundRobin : 1;
+                bool TBitLoadDisable : 1;
+                bool DTCM : 1;
+                bool DTCMWriteOnly : 1;
+                bool ITCM : 1;
+                bool ITCMWriteOnly : 1;
+            };
+        } Control;
+        u8 ICacheConfig;
+        u8 DCacheConfig;
+        u8 WBufferControl;
+        u32 MPUDataPerms;
+        u32 MPUInstrPerms;
+        union
+        {
+            u32 Data;
+            struct
+            {
+                bool Enable : 1;
+                u32 Size : 5;
+                u32 : 6;
+                u32 Base : 20;
+            };
+        } MPURegion[8];
+        union
+        {
+            u32 Data;
+            struct
+            {
+                u32 Index : 2;
+                u32 : 29;
+                bool Load : 1;
+            };
+        } DCacheLockDown;
+        union
+        {
+            u32 Data;
+            struct
+            {
+                u32 Index : 2;
+                u32 : 29;
+                bool Load : 1;
+            };
+        } ICacheLockDown;
+        union
+        {
+            u32 Data;
+            struct
+            {
+                bool : 1;
+                u32 Size : 5;
+                u32 : 6;
+                u32 Base : 20;
+            };
+        } DTCMRegion;
+        union
+        {
+            u32 Data;
+            struct
+            {
+                bool : 1;
+                u32 Size : 5;
+                u32 : 6;
+                u32 Base : 20;
+            };
+        } ITCMRegion;
+        u32 ProcessID;
+    } CP15;
+    u32 ITCMMask;
+    u32 DTCMMask;
+    u32 DTCMBase;
+    union
+    {
+        bool Halted;
+        bool WaitForInterrupt;
+    };
+    alignas(64) u32 RegionMask[8];
+    alignas(32) u32 RegionBase[8];
+    u8 RegionPerms[2][9];
 };
 
 extern void (*ARM9_InstrLUT[0x1000]) (struct ARM946E_S* ARM9);

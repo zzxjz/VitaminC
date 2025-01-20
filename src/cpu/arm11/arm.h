@@ -5,434 +5,434 @@
 
 union PageTableEntry
 {
-	u32 Data;
+    u32 Data;
 
-	struct
-	{
-		u32 Type : 2;
-		u32 : 3;
-		u32 Domain : 4;
-		bool ImplementationDefined : 1;
-		u32 LookupAddr : 22;
-	} Coarse;
+    struct
+    {
+        u32 Type : 2;
+        u32 : 3;
+        u32 Domain : 4;
+        bool ImplementationDefined : 1;
+        u32 LookupAddr : 22;
+    } Coarse;
 
-	struct
-	{
-		u32 Type : 2;
-		bool B : 1;
-		bool C : 1;
-		bool XN : 1;
-		u32 Domain : 4;
-		bool ImplementationDefined : 1;
-		u32 AP : 2;
-		u32 TEX : 3;
-		bool APX : 1;
-		bool S : 1;
-		bool NG : 1;
-		bool Supersection : 1;
-		bool : 1;
-		u32 BaseAddr : 12;
-	} Section;
+    struct
+    {
+        u32 Type : 2;
+        bool B : 1;
+        bool C : 1;
+        bool XN : 1;
+        u32 Domain : 4;
+        bool ImplementationDefined : 1;
+        u32 AP : 2;
+        u32 TEX : 3;
+        bool APX : 1;
+        bool S : 1;
+        bool NG : 1;
+        bool Supersection : 1;
+        bool : 1;
+        u32 BaseAddr : 12;
+    } Section;
 
-	struct
-	{
-		u32 Type : 2;
-		bool B : 1;
-		bool C : 1;
-		bool XN : 1;
-		u32 ExtAddr2 : 4;
-		bool ImplementationDefined : 1;
-		u32 AP : 2;
-		u32 TEX : 3;
-		bool APX : 1;
-		bool S : 1;
-		bool NG : 1;
-		bool Supersection : 1;
-		bool : 1;
-		u32 ExtAddr1 : 4;
-		u32 BaseAddr : 8;
-	} Supersection;
+    struct
+    {
+        u32 Type : 2;
+        bool B : 1;
+        bool C : 1;
+        bool XN : 1;
+        u32 ExtAddr2 : 4;
+        bool ImplementationDefined : 1;
+        u32 AP : 2;
+        u32 TEX : 3;
+        bool APX : 1;
+        bool S : 1;
+        bool NG : 1;
+        bool Supersection : 1;
+        bool : 1;
+        u32 ExtAddr1 : 4;
+        u32 BaseAddr : 8;
+    } Supersection;
 
-	union
-	{
-		struct
-		{
-			u32 Type : 2;
-			bool B : 1;
-			bool C : 1;
-			u32 AP0 : 2;
-			u32 AP1 : 2;
-			u32 AP2 : 2;
-			u32 AP3 : 2;
-			u32 TEX : 3;
-			bool : 1;
-			u32 BaseAddr : 16;
-		} LargePage;
+    union
+    {
+        struct
+        {
+            u32 Type : 2;
+            bool B : 1;
+            bool C : 1;
+            u32 AP0 : 2;
+            u32 AP1 : 2;
+            u32 AP2 : 2;
+            u32 AP3 : 2;
+            u32 TEX : 3;
+            bool : 1;
+            u32 BaseAddr : 16;
+        } LargePage;
 
-		struct
-		{
-			u32 Type : 2;
-			bool B : 1;
-			bool C : 1;
-			u32 AP0 : 2;
-			u32 AP1 : 2;
-			u32 AP2 : 2;
-			u32 AP3 : 2;
-			u32 BaseAddr : 20;
-		} SmallPage;
+        struct
+        {
+            u32 Type : 2;
+            bool B : 1;
+            bool C : 1;
+            u32 AP0 : 2;
+            u32 AP1 : 2;
+            u32 AP2 : 2;
+            u32 AP3 : 2;
+            u32 BaseAddr : 20;
+        } SmallPage;
 
-		struct
-		{
-			u32 Type : 2;
-			bool B : 1;
-			bool C : 1;
-			u32 AP : 2;
-			u32 TEX : 3;
-			u32 : 3;
-			u32 BaseAddr : 20;
-		} ExtSmallPage;
-	} L2YSubpage;
+        struct
+        {
+            u32 Type : 2;
+            bool B : 1;
+            bool C : 1;
+            u32 AP : 2;
+            u32 TEX : 3;
+            u32 : 3;
+            u32 BaseAddr : 20;
+        } ExtSmallPage;
+    } L2YSubpage;
 
-	union
-	{
-		struct
-		{
-			u32 Type : 2;
-			bool B : 1;
-			bool C : 1;
-			u32 AP : 2;
-			u32 : 3;
-			bool APX : 1;
-			bool S : 1;
-			bool NG : 1;
-			u32 TEX : 3;
-			bool XN : 1;
-			u32 BaseAddr : 16;
-		} LargePage;
+    union
+    {
+        struct
+        {
+            u32 Type : 2;
+            bool B : 1;
+            bool C : 1;
+            u32 AP : 2;
+            u32 : 3;
+            bool APX : 1;
+            bool S : 1;
+            bool NG : 1;
+            u32 TEX : 3;
+            bool XN : 1;
+            u32 BaseAddr : 16;
+        } LargePage;
 
-		struct
-		{
-			bool XN : 1;
-			bool Type : 1;
-			bool B : 1;
-			bool C : 1;
-			u32 AP : 2;
-			u32 TEX : 3;
-			bool APX : 1;
-			bool S : 1;
-			bool NG : 1;
-			u32 BaseAddr : 20;
-		} ExtSmallPage;
+        struct
+        {
+            bool XN : 1;
+            bool Type : 1;
+            bool B : 1;
+            bool C : 1;
+            u32 AP : 2;
+            u32 TEX : 3;
+            bool APX : 1;
+            bool S : 1;
+            bool NG : 1;
+            u32 BaseAddr : 20;
+        } ExtSmallPage;
 
-	} L2NSubpage;
+    } L2NSubpage;
 };
 
 enum
 {
-	TLB_Read  = 0b01,
-	TLB_Instr = 0b10,
+    TLB_Read  = 0b01,
+    TLB_Instr = 0b10,
 };
 
 extern const u16 CondLookup[16];
 
 struct ARM11MPCore
 {
-	// registers
-	union alignas(64) 
-	{
-		u32 R[16];
-		struct
-		{
-			u32 R0;
-			u32 R1;
-			u32 R2;
-			u32 R3;
-			u32 R4;
-			u32 R5;
-			u32 R6;
-			u32 R7;
-			u32 R8;
-			u32 R9;
-			u32 R10;
-			u32 R11;
-			u32 R12;
-			u32 SP;
-			u32 LR;
-			u32 PC;
-		};
-	};
-	union
-	{
-		u32 CPSR;
-		struct
-		{
-			u32 Mode : 5;
-			bool Thumb : 1;
-			bool FIQDisable : 1;
-			bool IRQDisable : 1;
-			bool ImpreciseAbortDisable : 1;
-			bool DataBigEndian : 1;
-			u32 : 6;
-			u32 GE : 4;
-			u32 : 4;
-			bool Jazelle : 1;
-			u32 : 2;
-			bool QSticky : 1;
-			bool Overflow : 1;
-			bool Carry : 1;
-			bool Zero : 1;
-			bool Negative : 1;
-		};
-		struct
-		{
-			u32 : 28;
-			u32 Flags : 4;
-		};
-	};
-	u32* SPSR;
-	u8 CPUID;
-	union // USR
-	{
-		u32 R[7];
-		struct
-		{
-			u32 R8;
-			u32 R9;
-			u32 R10;
-			u32 R11;
-			u32 R12;
-			u32 SP;
-			u32 LR;
-		};
-	} USR;
-	union // SVC
-	{
-		u32 R[3];
-		struct
-		{
-			u32 SP;
-			u32 LR;
-			u32 SPSR;
-		};
-	} SVC;
-	union // ABT
-	{
-		u32 R[3];
-		struct
-		{
-			u32 SP;
-			u32 LR;
-			u32 SPSR;
-		};
-	} ABT;
-	union // UND
-	{
-		u32 R[3];
-		struct
-		{
-			u32 SP;
-			u32 LR;
-			u32 SPSR;
-		};
-	} UND;
-	union // IRQ
-	{
-		u32 R[3];
-		struct
-		{
-			u32 SP;
-			u32 LR;
-			u32 SPSR;
-		};
-	} IRQ;
-	union // FIQ
-	{
-		u32 R[8];
-		struct
-		{
-			u32 R8;
-			u32 R9;
-			u32 R10;
-			u32 R11;
-			u32 R12;
-			u32 SP;
-			u32 LR;
-			u32 SPSR;
-		};
-	} FIQ;
-	struct Instruction Instr;
-	u64 Timestamp;
-	void (*NextStep)(struct ARM11MPCore* ARM11);
-	struct
-	{
-		union
-		{
-			u32 Control;
-			struct
-			{
-				bool MMU : 1;
-				bool AlignmentFault : 1;
-				bool L1DCache : 1;
-				u32 : 5;
-				bool SysProt : 1;
-				bool ROMProt : 1;
-				bool : 1;
-				bool ProgramFlowPred : 1;
-				bool L1ICache : 1;
-				bool HighVector : 1;
-				bool : 1;
-				bool TBitLoadDisable : 1;
-				u32 : 6;
-				bool ExtPageTable : 1;
-				bool : 1;
-				bool ExceptionEndian : 1;
-				bool : 1;
-				bool NMFIwhat : 1;
-				bool TEXRemap : 1;
-				bool ForceAP : 1;
-				u32 : 2;
-			};
-		};
-		union
-		{
-			u8 AuxControl;
-			struct
-			{
-				bool ReturnStack : 1;
-				bool DynamicBranchPred : 1;
-				bool StaticBranchPred : 1;
-				bool InstrFolding : 1;
-				bool ExclusiveL1L2 : 1;
-				bool CoherencyMode : 1;
-				bool L1ParityCheck : 1;
-			};
-		};
-		union
-		{
-			u32 CoprocAccessControl;
-			struct
-			{
-				u32 : 20;
-				u32 CP10Access : 2;
-				u32 CP11Access : 2;
-				u32 : 8;
-			};
-		};
-		union
-		{
-			u32 TransTblBaseR0;
-			struct
-			{
-				bool : 1;
-				bool Shared : 1;
-				bool ECC : 1;
-				bool RGN : 1;
-				u32 : 9;
-				u32 : 18;
-			} TTB_R0;
-		};
-		union
-		{
-			u32 TransTblBaseR1;
-			struct
-			{
-				bool : 1;
-				bool Shared : 1;
-				bool : 1;
-				bool RGN : 1;
-				u32 : 9;
-				u32 : 18;
-			} TTB_R1;
-		};
-		union
-		{
-			u8 TransTblControl;
-			u8 N : 3;
-		};
-		u32 DomainAccessControl;
-		union
-		{
-			u16 DataFaultStatus;
-			struct
-			{
-				u16 Type1 : 4;
-				u16 Domain : 4;
-				u16 : 2;
-				u16 Type2 : 1;
-				bool ReadOrWrite : 1;
-				bool ExtAbtQual : 1;
-			} DataFault;
-		};
-		union
-		{
-			u16 InstrFaultStatus;
-			struct
-			{
-				u16 Type1 : 4;
-				u16 Domain : 4;
-				u16 : 2;
-				u16 Type2 : 1;
-				bool : 1;
-				bool ExtAbtQual : 1;
-			} InstrFault;
-		};
-		u32 DataFaultAddress;
-		u32 WatchpointFaultAddress;
-		u32 DCacheLockdown;
-		u32 TLBLockdown;
-		u32 PrimaryMemRgnRemap;
-		u32 NormalMemRgnRemap;
-		u32 FCSEPID;
-		u32 ContextID;
-		u32 ThreadID[3];
-		u32 PerfMonitorControl;
-	} CP15;
-	struct
-	{
-		u8 IRQControl;
+    // registers
+    union alignas(64) 
+    {
+        u32 R[16];
+        struct
+        {
+            u32 R0;
+            u32 R1;
+            u32 R2;
+            u32 R3;
+            u32 R4;
+            u32 R5;
+            u32 R6;
+            u32 R7;
+            u32 R8;
+            u32 R9;
+            u32 R10;
+            u32 R11;
+            u32 R12;
+            u32 SP;
+            u32 LR;
+            u32 PC;
+        };
+    };
+    union
+    {
+        u32 CPSR;
+        struct
+        {
+            u32 Mode : 5;
+            bool Thumb : 1;
+            bool FIQDisable : 1;
+            bool IRQDisable : 1;
+            bool ImpreciseAbortDisable : 1;
+            bool DataBigEndian : 1;
+            u32 : 6;
+            u32 GE : 4;
+            u32 : 4;
+            bool Jazelle : 1;
+            u32 : 2;
+            bool QSticky : 1;
+            bool Overflow : 1;
+            bool Carry : 1;
+            bool Zero : 1;
+            bool Negative : 1;
+        };
+        struct
+        {
+            u32 : 28;
+            u32 Flags : 4;
+        };
+    };
+    u32* SPSR;
+    u8 CPUID;
+    union // USR
+    {
+        u32 R[7];
+        struct
+        {
+            u32 R8;
+            u32 R9;
+            u32 R10;
+            u32 R11;
+            u32 R12;
+            u32 SP;
+            u32 LR;
+        };
+    } USR;
+    union // SVC
+    {
+        u32 R[3];
+        struct
+        {
+            u32 SP;
+            u32 LR;
+            u32 SPSR;
+        };
+    } SVC;
+    union // ABT
+    {
+        u32 R[3];
+        struct
+        {
+            u32 SP;
+            u32 LR;
+            u32 SPSR;
+        };
+    } ABT;
+    union // UND
+    {
+        u32 R[3];
+        struct
+        {
+            u32 SP;
+            u32 LR;
+            u32 SPSR;
+        };
+    } UND;
+    union // IRQ
+    {
+        u32 R[3];
+        struct
+        {
+            u32 SP;
+            u32 LR;
+            u32 SPSR;
+        };
+    } IRQ;
+    union // FIQ
+    {
+        u32 R[8];
+        struct
+        {
+            u32 R8;
+            u32 R9;
+            u32 R10;
+            u32 R11;
+            u32 R12;
+            u32 SP;
+            u32 LR;
+            u32 SPSR;
+        };
+    } FIQ;
+    struct Instruction Instr;
+    u64 Timestamp;
+    void (*NextStep)(struct ARM11MPCore* ARM11);
+    struct
+    {
+        union
+        {
+            u32 Control;
+            struct
+            {
+                bool MMU : 1;
+                bool AlignmentFault : 1;
+                bool L1DCache : 1;
+                u32 : 5;
+                bool SysProt : 1;
+                bool ROMProt : 1;
+                bool : 1;
+                bool ProgramFlowPred : 1;
+                bool L1ICache : 1;
+                bool HighVector : 1;
+                bool : 1;
+                bool TBitLoadDisable : 1;
+                u32 : 6;
+                bool ExtPageTable : 1;
+                bool : 1;
+                bool ExceptionEndian : 1;
+                bool : 1;
+                bool NMFIwhat : 1;
+                bool TEXRemap : 1;
+                bool ForceAP : 1;
+                u32 : 2;
+            };
+        };
+        union
+        {
+            u8 AuxControl;
+            struct
+            {
+                bool ReturnStack : 1;
+                bool DynamicBranchPred : 1;
+                bool StaticBranchPred : 1;
+                bool InstrFolding : 1;
+                bool ExclusiveL1L2 : 1;
+                bool CoherencyMode : 1;
+                bool L1ParityCheck : 1;
+            };
+        };
+        union
+        {
+            u32 CoprocAccessControl;
+            struct
+            {
+                u32 : 20;
+                u32 CP10Access : 2;
+                u32 CP11Access : 2;
+                u32 : 8;
+            };
+        };
+        union
+        {
+            u32 TransTblBaseR0;
+            struct
+            {
+                bool : 1;
+                bool Shared : 1;
+                bool ECC : 1;
+                bool RGN : 1;
+                u32 : 9;
+                u32 : 18;
+            } TTB_R0;
+        };
+        union
+        {
+            u32 TransTblBaseR1;
+            struct
+            {
+                bool : 1;
+                bool Shared : 1;
+                bool : 1;
+                bool RGN : 1;
+                u32 : 9;
+                u32 : 18;
+            } TTB_R1;
+        };
+        union
+        {
+            u8 TransTblControl;
+            u8 N : 3;
+        };
+        u32 DomainAccessControl;
+        union
+        {
+            u16 DataFaultStatus;
+            struct
+            {
+                u16 Type1 : 4;
+                u16 Domain : 4;
+                u16 : 2;
+                u16 Type2 : 1;
+                bool ReadOrWrite : 1;
+                bool ExtAbtQual : 1;
+            } DataFault;
+        };
+        union
+        {
+            u16 InstrFaultStatus;
+            struct
+            {
+                u16 Type1 : 4;
+                u16 Domain : 4;
+                u16 : 2;
+                u16 Type2 : 1;
+                bool : 1;
+                bool ExtAbtQual : 1;
+            } InstrFault;
+        };
+        u32 DataFaultAddress;
+        u32 WatchpointFaultAddress;
+        u32 DCacheLockdown;
+        u32 TLBLockdown;
+        u32 PrimaryMemRgnRemap;
+        u32 NormalMemRgnRemap;
+        u32 FCSEPID;
+        u32 ContextID;
+        u32 ThreadID[3];
+        u32 PerfMonitorControl;
+    } CP15;
+    struct
+    {
+        u8 IRQControl;
 
-		union
-		{
-			u16 TimerControl;
-			struct
-			{
-				bool Enable : 1;
-				bool AutoReload : 1;
-				bool IRQEnable : 1;
-				u16 : 5;
-				u16 Prescaler : 8;
-			} Timer;
-		};
-		u8 TimerIRQStat;
-		union
-		{
-			u16 WatchdogControl;
-			struct
-			{
-				bool Enable : 1;
-				bool AutoReload : 1;
-				bool IRQEnable : 1;
-				bool WatchdogMode : 1;
-				u16 : 4;
-				u16 Prescaler : 8;
-			} Watchdog;
-		};
-		u8 WatchdogIRQStat;
-		u8 WatchdogResetStat;
-		u32 WatchdogDisable;
+        union
+        {
+            u16 TimerControl;
+            struct
+            {
+                bool Enable : 1;
+                bool AutoReload : 1;
+                bool IRQEnable : 1;
+                u16 : 5;
+                u16 Prescaler : 8;
+            } Timer;
+        };
+        u8 TimerIRQStat;
+        union
+        {
+            u16 WatchdogControl;
+            struct
+            {
+                bool Enable : 1;
+                bool AutoReload : 1;
+                bool IRQEnable : 1;
+                bool WatchdogMode : 1;
+                u16 : 4;
+                u16 Prescaler : 8;
+            } Watchdog;
+        };
+        u8 WatchdogIRQStat;
+        u8 WatchdogResetStat;
+        u32 WatchdogDisable;
 
-		u8 IRQPriority[20];
-		u8 IRQConfig[60];
-	} PrivRgn;
-	union
-	{
-		u8 Halted;
-		struct
-		{
-			bool WaitForInterrupt : 1;
-			bool WaitForEvent : 1;
-		};
-	};
+        u8 IRQPriority[20];
+        u8 IRQConfig[60];
+    } PrivRgn;
+    union
+    {
+        u8 Halted;
+        struct
+        {
+            bool WaitForInterrupt : 1;
+            bool WaitForEvent : 1;
+        };
+    };
 };
 
 extern void (*ARM11_InstrLUT[0x1000]) (struct ARM11MPCore* ARM11);

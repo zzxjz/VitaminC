@@ -52,7 +52,7 @@ void THUMB9_CondB_SWI(struct ARM946E_S* ARM9)
     if (condition == COND_AL) { ARM9_UndefinedInstruction(ARM9); return; }
     if (condition == COND_NV) { ARM9_SupervisorCall(ARM9); return; }
 
-	if (CondLookup[condition] & (1<<ARM9->Flags))
+    if (CondLookup[condition] & (1<<ARM9->Flags))
     {
         s32 offset = ((s16)(s8)curinstr) << 1;
         u32 addr = ARM9_GetReg(ARM9, 15) + offset;

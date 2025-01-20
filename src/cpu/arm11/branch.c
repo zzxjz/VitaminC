@@ -53,7 +53,7 @@ void THUMB11_CondB_SWI(struct ARM11MPCore* ARM11)
     if (condition == COND_AL) { printf("UNIMPLEMENTED T BAL!!!\n"); return; }
     if (condition == COND_NV) { printf("UNIMPLEMENTED T SWI\n"); return; }
 
-	if (CondLookup[condition] & (1<<ARM11->Flags))
+    if (CondLookup[condition] & (1<<ARM11->Flags))
     {
         s32 offset = ((s16)(s8)curinstr) << 1;
         u32 addr = ARM11_GetReg(ARM11, 15) + offset;
