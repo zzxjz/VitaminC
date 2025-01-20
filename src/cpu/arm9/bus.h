@@ -16,7 +16,7 @@ char* Bus9_Init();
 void Bus9_Free();
 
 u32 Bus9_PageTableLoad32(struct ARM946E_S* ARM9, const u32 addr);
-u32 Bus9_InstrLoad32(struct ARM946E_S* ARM9, u32 addr);
+struct Instruction Bus9_InstrLoad32(struct ARM946E_S* ARM9, u32 addr);
 u32 Bus9_Load32(struct ARM946E_S* ARM9, u32 addr);
 u16 Bus9_Load16(struct ARM946E_S* ARM9, u32 addr);
 u8 Bus9_Load8(struct ARM946E_S* ARM9, u32 addr);

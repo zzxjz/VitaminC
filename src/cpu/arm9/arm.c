@@ -19,9 +19,8 @@ void THUMB9_DecodeMiscThumb(struct ARM946E_S* ARM9)
 	CHECK(000000000, 111100000, THUMB9_ADD_SUB_SP) // adjust stack ptr
 	CHECK(010000000, 111000000, THUMB9_PUSH) // push
 	CHECK(110000000, 111000000, THUMB9_POP) // pop
-	//CHECK(111000000, 111000000, NULL) // bkpt
-	//NULL();
-	printf("UNIMPLEMENTED MISC THUMB INSTRUCTION %04X\n", ARM9->Instr[0].Data);
+	CHECK(111000000, 111000000, ARM9_PrefetchAbort) // bkpt
+	ARM9_UndefinedInstruction(ARM9);
 }
 
 #undef CHECK
@@ -40,7 +39,7 @@ void* ARM9_InitARMInstrLUT(const u16 bits)
 	CHECK(000100100010, 111111111111, NULL) // bxj checkme: does this exist on arm9? does it decode to anything of use?
 	CHECK(000101100001, 111111111111, NULL) // clz
 	CHECK(000100000100, 111110011111, NULL) // q(d)add/sub
-	CHECK(000100100111, 111111111111, NULL) // bkpt
+	CHECK(000100100111, 111111111111, ARM9_PrefetchAbort) // bkpt
 	CHECK(000100001000, 111110011001, NULL) // signed multiplies
 	// load/store extension space
 	CHECK(000100001001, 111110111111, NULL) // swp
@@ -49,15 +48,15 @@ void* ARM9_InitARMInstrLUT(const u16 bits)
 	CHECK(000000011101, 111000011101, NULL) // ldrsh/ldrsb
 	CHECK(000000001101, 111000011101, NULL) // ldrd/strd
 	// explicitly defined undefined space
-	CHECK(011111111111, 111111111111, NULL) // undef instr
+	CHECK(011111111111, 111111111111, ARM9_UndefinedInstruction) // undef instr
 	// coproc extension space
-	CHECK(110000000000, 111110100000, NULL) // coprocessor? - checkme: longer undef?
+	CHECK(110000000000, 111110100000, ARM9_UndefinedInstruction) // coprocessor? - checkme: longer undef?
 	// data processing
 	CHECK(000000000000, 110000000000, ARM9_ALU) // alu
 	// load/store
 	CHECK(010000000000, 110000000000, ARM9_LDR_STR) // load/store
 	// coprocessor data processing
-	CHECK(111000000000, 111100000001, NULL) // cdp? - checkme: longer undef?
+	CHECK(111000000000, 111100000001, ARM9_UndefinedInstruction) // cdp? - checkme: longer undef?
 	// coprocessor register transfers
 	CHECK(111000000001, 111100010001, ARM9_MCR_MRC) // mcr
 	CHECK(111000010001, 111100010001, ARM9_MCR_MRC) // mrc
@@ -66,7 +65,7 @@ void* ARM9_InitARMInstrLUT(const u16 bits)
 	// branch
 	CHECK(101000000000, 111000000000, ARM9_B_BL) // b/bl
 
-	return NULL; // undef instr (raise exception)
+	return ARM9_UndefinedInstruction; // undef instr (raise exception)
 }
 
 void* ARM9_InitTHUMBInstrLUT(const u8 bits)
@@ -88,17 +87,17 @@ void* ARM9_InitTHUMBInstrLUT(const u8 bits)
 	CHECK(111000, 111110, THUMB9_B); // b
 	CHECK(111100, 111110, THUMB9_BL_BLX_LO); // bl(x) prefix
 	CHECK(111010, 111010, THUMB9_BL_BLX_HI); // bl(x) suffix
-	return NULL; // udf
+	return ARM9_UndefinedInstruction; // udf
 }
 
 void* ARM9_DecodeUncondInstr(const u32 bits)
 {
 	CHECK(0101010100001111000000000000, 1101011100001111000000000000, ARM9_PLD) // pld
 	CHECK(1010000000000000000000000000, 1110000000000000000000000000, ARM9_BLX_Imm) // blx (imm)
-	CHECK(1100010000000000000000000000, 1111111000000000000000000000, NULL) // cp double reg - longer undef?
-	CHECK(1110000000000000000000010000, 1111000000000000000000010000, NULL) // cp reg transfer? - longer undef?
-	CHECK(1111000000000000000000000000, 1111000000000000000000000000, NULL) // undef instr
-	return NULL; // undefined instr? (checkme)
+	CHECK(1100010000000000000000000000, 1111111000000000000000000000, ARM9_UndefinedInstruction) // cp double reg - longer undef?
+	CHECK(1110000000000000000000010000, 1111000000000000000000010000, ARM9_UndefinedInstruction) // cp reg transfer? - longer undef?
+	CHECK(0001001000000000000001110000, 1111111100000000000011110000, ARM9_PrefetchAbort) // bkpt - checkme?
+	return ARM9_UndefinedInstruction; // undefined instr? (checkme)
 }
 
 #undef CHECK
@@ -121,7 +120,14 @@ char* ARM9_Init()
 	_ARM9.ITCMMask = 0xFFFFFFFF;
     _ARM9.DTCMMask = 0x00000000;
     _ARM9.DTCMBase = 0xFFFFFFFF;
+	_ARM9.FIQDisable = true;
+	_ARM9.IRQDisable = true;
 	return NULL;
+}
+
+u32 ARM9_GetExceptionVector(struct ARM946E_S* ARM9)
+{
+	return ARM9->CP15.Control.HighVector ? 0xFFFF0000 : 0x00000000;
 }
 
 void ARM9_UpdateMode(struct ARM946E_S* ARM9, u8 oldmode, u8 newmode)
@@ -199,6 +205,71 @@ void ARM9_UpdateMode(struct ARM946E_S* ARM9, u8 oldmode, u8 newmode)
 	}
 }
 
+void ARM9_UndefinedInstruction(struct ARM946E_S* ARM9)
+{
+	printf("ARM9 - UNDEFINED INSTRUCTION: PC = %08X INSTR = %08X\n", ARM9->PC, ARM9->Instr[0].Data);
+	
+	ARM9_UpdateMode(ARM9, ARM9->Mode, MODE_UND);
+	*ARM9->SPSR = ARM9->CPSR;
+	ARM9->LR = ARM9_GetReg(ARM9, 15) - (ARM9->Thumb ? 2 : 4);
+	ARM9->Mode = MODE_UND;
+	ARM9->Thumb = false;
+	ARM9->IRQDisable = true;
+	ARM9_Branch(ARM9, ARM9_GetExceptionVector(ARM9) + VECTOR_UND, false);
+}
+
+void ARM9_SupervisorCall(struct ARM946E_S* ARM9)
+{
+	ARM9_UpdateMode(ARM9, ARM9->Mode, MODE_SVC);
+	*ARM9->SPSR = ARM9->CPSR;
+	ARM9->LR = ARM9_GetReg(ARM9, 15) - (ARM9->Thumb ? 2 : 4);
+	ARM9->Mode = MODE_SVC;
+	ARM9->Thumb = false;
+	ARM9->IRQDisable = true;
+	ARM9_Branch(ARM9, ARM9_GetExceptionVector(ARM9) + VECTOR_SVC, false);
+}
+
+void ARM9_PrefetchAbort(struct ARM946E_S* ARM9)
+{
+	if (ARM9->Instr[0].Data != 0)
+	{
+		printf("ARM9 - BKPT: PC = %08X\n", ARM9->PC);
+	}
+	else printf("ARM9 - PREFETCH ABORT: PC = %08X\n", ARM9->PC);
+
+	ARM9_UpdateMode(ARM9, ARM9->Mode, MODE_ABT);
+	*ARM9->SPSR = ARM9->CPSR;
+	ARM9->LR = ARM9_GetReg(ARM9, 15) - (ARM9->Thumb ? 0 : 4);
+	ARM9->Mode = MODE_ABT;
+	ARM9->Thumb = false;
+	ARM9->IRQDisable = true;
+	ARM9_Branch(ARM9, ARM9_GetExceptionVector(ARM9) + VECTOR_PAB, false);
+}
+
+void ARM9_DataAbort(struct ARM946E_S* ARM9)
+{
+	printf("ARM9 - DATA ABORT: PC = %08X\n", ARM9->PC);
+
+	ARM9_UpdateMode(ARM9, ARM9->Mode, MODE_ABT);
+	*ARM9->SPSR = ARM9->CPSR;
+	ARM9->LR = ARM9_GetReg(ARM9, 15) + (ARM9->Thumb ? 4 : 0);
+	ARM9->Mode = MODE_ABT;
+	ARM9->Thumb = false;
+	ARM9->IRQDisable = true;
+	ARM9_Branch(ARM9, ARM9_GetExceptionVector(ARM9) + VECTOR_DAB, false);
+}
+
+void ARM9_InterruptRequest(struct ARM946E_S* ARM9)
+{
+	ARM9_UpdateMode(ARM9, ARM9->Mode, MODE_IRQ);
+	*ARM9->SPSR = ARM9->CPSR;
+	ARM9->LR = ARM9_GetReg(ARM9, 15) - (ARM9->Thumb ? 0 : 4);
+	ARM9->Mode = MODE_IRQ;
+	ARM9->Thumb = false;
+	ARM9->IRQDisable = true;
+	ARM9_Branch(ARM9, ARM9_GetExceptionVector(ARM9) + VECTOR_IRQ, false);
+}
+
 void ARM9_MRS(struct ARM946E_S* ARM9)
 {
 	const u32 curinstr = ARM9->Instr[0].Data;
@@ -220,18 +291,10 @@ void ARM9_MSR(struct ARM946E_S* ARM9, u32 val)
 	const bool s = curinstr & (1<<18);
 	const bool f = curinstr & (1<<19);
 
-	u32 writemask;
-	if (ARM9->Mode == MODE_USR)
-	{
-		writemask = 0xF8000000;
-	}
-	else
-	{
-		writemask = 0xF80000EF;
-		if (!c) writemask &= 0xFFFFFF00;
-	}
+	u32 writemask = 0;
 
-	if (!f) writemask &= 0x00FFFFFF;
+	if (f) writemask |= 0xF8000000;
+	if (c && !(ARM9->Mode == MODE_USR)) writemask |= 0xEF;
 
 	val &= writemask;
 
@@ -272,17 +335,13 @@ void ARM9_MSRImm(struct ARM946E_S* ARM9)
 	ARM9_MSR(ARM9, val);
 }
 
-u32 ARM9_CodeFetch(struct ARM946E_S* ARM9)
-{
-	return Bus9_InstrLoad32(ARM9, ARM9->PC);
-}
-
 void ARM9_Branch(struct ARM946E_S* ARM9, u32 addr, const bool restore)
 {
 #if 1
 	if (addr != 0xFFFF8208)
 		printf("ARM9: Jumping to %08X from %08X via %08X\n", addr, ARM9->PC, ARM9->Instr[0].Data);
 #endif
+
 	if (restore)
 	{
 		const u32 spsr = *ARM9->SPSR;
@@ -299,11 +358,13 @@ void ARM9_Branch(struct ARM946E_S* ARM9, u32 addr, const bool restore)
 		ARM9->Thumb = true;
 
 		addr &= ~0x1;
-		ARM9->PC = addr;
+		ARM9->PC = addr + 2;
 
 		if (addr & 0x2)
 		{
-			ARM9->Instr[0].Data = ARM9_CodeFetch(ARM9);
+			ARM9->Instr[1] = Bus9_InstrLoad32(ARM9, addr-2);
+			ARM9->Instr[1].Data >>= 16;
+			ARM9->Instr[2] = Bus9_InstrLoad32(ARM9, addr+2);
 		}
 	}
 	else
@@ -311,7 +372,10 @@ void ARM9_Branch(struct ARM946E_S* ARM9, u32 addr, const bool restore)
 		ARM9->Thumb = false;
 
 		addr &= ~0x3;
-		ARM9->PC = addr;
+		ARM9->PC = addr + 4;
+
+		ARM9->Instr[1] = Bus9_InstrLoad32(ARM9, addr);
+		ARM9->Instr[2] = Bus9_InstrLoad32(ARM9, addr+4);
 	}
 }
 
@@ -319,7 +383,7 @@ inline u32 ARM9_GetReg(struct ARM946E_S* ARM9, const int reg)
 {
 	if (reg == 15)
 	{
-		return ARM9->PC + (ARM9->Thumb ? 2 : 4);
+		return ARM9->PC;
 	}
 	else return ARM9->R[reg];
 }
@@ -343,10 +407,15 @@ inline void ARM9_WriteReg(struct ARM946E_S* ARM9, const int reg, u32 val, const 
 
 void ARM9_StartFetch(struct ARM946E_S* ARM9)
 {
-	if (!(ARM9->PC & 0x2)) ARM9->Instr[0].Data = ARM9_CodeFetch(ARM9);
-	else ARM9->Instr[0].Data >>= 16;
+	ARM9->PC += (ARM9->Thumb ? 2 : 4); // todo: this should technically be incremented *after* the fetch is done
 
-	ARM9->PC += (ARM9->Thumb ? 2 : 4);
+	ARM9->Instr[0] = ARM9->Instr[1];
+	if (!(ARM9->PC & 0x2)) ARM9->Instr[2] = Bus9_InstrLoad32(ARM9, ARM9->PC);
+	else
+	{
+		ARM9->Instr[1] = ARM9->Instr[2];
+		ARM9->Instr[2].Data >>= 16;
+	}
 }
 
 void ARM9_StartExec(struct ARM946E_S* ARM9)
@@ -355,7 +424,11 @@ void ARM9_StartExec(struct ARM946E_S* ARM9)
     const u8 condcode = instr >> 28;
 	
 	// Todo: handle IRQs
-	if (CondLookup[condcode] & (1<<ARM9->Flags))
+	if (ARM9->Instr[0].PrefetchAbort)
+	{
+		ARM9_PrefetchAbort(ARM9);
+	}
+	else if (CondLookup[condcode] & (1<<ARM9->Flags))
 	{
     	const u16 decodebits = ((instr >> 16) & 0xFF0) | ((instr >> 4) & 0xF);
 
@@ -373,18 +446,11 @@ void ARM9_StartExec(struct ARM946E_S* ARM9)
 	}
 	else if (condcode == COND_NV) // do special handling for unconditional instructions
 	{
-		void (*func)(struct ARM946E_S*) = ARM9_DecodeUncondInstr(instr);
-		if (func) func(ARM9);
-		else
-		{
-			printf("ARM9 - UNCOND: %08X!!!!\n", ARM9->Instr[0].Data);
-			for (int i = 0; i < 16; i++) printf("%i, %08X ", i, ARM9->R[i]);
-			while (true)
-				;
-		}
+		((void(*)(struct ARM946E_S*))ARM9_DecodeUncondInstr(instr))(ARM9);
 	}
-	else if (false) // TODO: handle illegal BKPTs? they still execute even when their condition fails
+	else if ((ARM9->Instr[0].Data & 0x0FF000F0) == 0x01200070) // BKPT always executes, even when it's condition fails
 	{
+		ARM9_PrefetchAbort(ARM9);
 	}
 	else
 	{
@@ -399,14 +465,7 @@ void THUMB9_StartExec(struct ARM946E_S* ARM9)
 
 	const u8 decodebits = instr >> 10;
 
-	if (THUMB9_InstrLUT[decodebits])
-		(THUMB9_InstrLUT[decodebits])(ARM9);
-	else
-	{
-		printf("ARM9 - UNIMPL THUMB INSTR: %04X @ %08X\n", instr, ARM9->PC);
-		while(true)
-			;
-	}
+	(THUMB9_InstrLUT[decodebits])(ARM9);
 }
 
 void ARM9_RunInterpreter(struct ARM946E_S* ARM9, u64 target)
@@ -416,7 +475,14 @@ void ARM9_RunInterpreter(struct ARM946E_S* ARM9, u64 target)
         //(ARM9->NextStep)(ARM9);
 		if (ARM9->Halted)
 		{
-			
+			if (false) // IRQSignaled = IE & IF;
+			{
+				ARM9->WaitForInterrupt = false;
+				if (!ARM9->IRQDisable)
+				{
+
+				}
+			}
 		}
 		else
 		{

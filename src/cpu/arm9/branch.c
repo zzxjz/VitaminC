@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "arm.h"
 #include "../../utils.h"
 
@@ -50,8 +49,8 @@ void THUMB9_CondB_SWI(struct ARM946E_S* ARM9)
     const u16 curinstr = ARM9->Instr[0].Data;
     const u8 condition = (curinstr >> 8) & 0xF;
 
-    if (condition == COND_AL) { printf("UNIMPLEMENTED T BAL!!!\n"); return; }
-    if (condition == COND_NV) { printf("UNIMPLEMENTED T SWI\n"); return; }
+    if (condition == COND_AL) { ARM9_UndefinedInstruction(ARM9); return; }
+    if (condition == COND_NV) { ARM9_SupervisorCall(ARM9); return; }
 
 	if (CondLookup[condition] & (1<<ARM9->Flags))
     {
@@ -86,7 +85,7 @@ void THUMB9_BL_BLX_HI(struct ARM946E_S* ARM9)
     const u16 curinstr = ARM9->Instr[0].Data;
     const bool x = !(curinstr & (1<<12));
 
-    if (x && (curinstr & 0x1)) { printf("INVALID BLX HI!!!!\n"); return; }
+    if (x && (curinstr & 0x1)) { ARM9_UndefinedInstruction(ARM9); return; }
 
     u32 addr = (u64)ARM9_GetReg(ARM9, 14) + ((curinstr & 0x7FF) << 1);
 

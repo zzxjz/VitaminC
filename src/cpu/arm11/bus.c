@@ -418,7 +418,7 @@ void Bus11_Store16_IO(struct ARM11MPCore* ARM11, const u32 addr, const u16 val)
         case 0x10163000: PXISync_WriteSend(val >> 8, ARM11ID); break;
         case 0x10163002: PXI11Sync_WriteIRQ(val >> 8); break;
 
-        default: printf("ARM11 - UNK IO STORE16 %08X %02X %08X\n", addr, val, ARM11->PC); break;
+        default: printf("ARM11 - UNK IO STORE16 %08X %04X %08X\n", addr, val, ARM11->PC); break;
     }
 }
 
@@ -866,7 +866,7 @@ u32 Bus11_PageTableLoad32(struct ARM11MPCore* ARM11, u32 addr)
 
     u32 val = Bus11_Load32_Main(ARM11, addr & ~3);
 
-    return ARM11->CP15.ExceptionEndian ? __builtin_bswap32(val) : val;
+    return ARM11->CP15.ExceptionEndian ? bswap(val) : val;
 }
 
 u32 Bus11_InstrLoad32(struct ARM11MPCore* ARM11, u32 addr)

@@ -41,7 +41,7 @@ bool ARM11_CP15_PageTable_PrivilegeLookup(struct ARM11MPCore* ARM11, bool read, 
         case 0b111: // reserved
             printf("INVALID ACCESS PERMISSION 0b111!!!\n");
             return false;
-        default: __builtin_unreachable();
+        default: unreachable();
         }
     }
     case 0b10: // reserved
@@ -49,7 +49,7 @@ bool ARM11_CP15_PageTable_PrivilegeLookup(struct ARM11MPCore* ARM11, bool read, 
         return false; // checkme
     case 0b11: // manager
         return true;
-    default: __builtin_unreachable();
+    default: unreachable();
     }
 }
 
@@ -113,7 +113,7 @@ bool ARM11_CP15_PageTable_Lookup(struct ARM11MPCore* ARM11, u32* addr, const u8 
                 *addr = (entry2.L2NSubpage.ExtSmallPage.BaseAddr << 12) | (*addr & 0x00000FFF);
                 return true;
             }
-            default: __builtin_unreachable();
+            default: unreachable();
             }
         }
         else
@@ -148,7 +148,7 @@ bool ARM11_CP15_PageTable_Lookup(struct ARM11MPCore* ARM11, u32* addr, const u8 
                 *addr = (entry2.L2NSubpage.ExtSmallPage.BaseAddr << 12) | (*addr & 0x00000FFF);
                 return true;
             }
-            default: __builtin_unreachable();
+            default: unreachable();
             }
         }
     }
@@ -185,7 +185,7 @@ bool ARM11_CP15_PageTable_Lookup(struct ARM11MPCore* ARM11, u32* addr, const u8 
     case 0b11: // reserved?
         printf("RESERVED PAGE TABLE MODE????\n");
         return false; // checkme?
-    default: __builtin_unreachable();
+    default: unreachable();
     }
 }
 

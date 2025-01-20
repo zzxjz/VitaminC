@@ -424,7 +424,7 @@ void THUMB9_ShiftImm(struct ARM946E_S* ARM9)
     case 0x0: THUMB9_LSL(ARM9, rd, rm, imm5); break;
     case 0x1: THUMB9_LSR(ARM9, rd, rm, imm5 ? imm5 : 32); break;
     case 0x2: THUMB9_ASR(ARM9, rd, rm, imm5 ? imm5 : 32); break;
-    default: __builtin_unreachable();
+    default: unreachable();
     }
 }
 

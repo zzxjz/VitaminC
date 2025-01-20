@@ -1,3 +1,4 @@
+#include <stdbit.h>
 #include "arm.h"
 #include "bus.h"
 
@@ -105,7 +106,7 @@ void ARM11_LDM_STM(struct ARM11MPCore* ARM11)
     const u32 rn = ARM11_GetReg(ARM11, (curinstr >> 16) & 0xF);
     const int r15 = curinstr & (1<<15);
     u16 rlist = curinstr & 0xFFFF;
-    const int rcount = __builtin_popcount(rlist);
+    const int rcount = stdc_count_ones(rlist);
     u32 wbbase;
     u32 base;
 
@@ -120,7 +121,7 @@ void ARM11_LDM_STM(struct ARM11MPCore* ARM11)
 
     while (rlist)
     {
-        int reg = __builtin_ctz(rlist);
+        int reg = stdc_trailing_zeros(rlist);
         rlist &= ~1<<reg;
 
         if (p^u) base += 4;
@@ -236,7 +237,7 @@ void THUMB11_LDMIA_STMIA(struct ARM11MPCore* ARM11)
 
     while (rlist)
     {
-        int reg = __builtin_ctz(rlist);
+        int reg = stdc_trailing_zeros(rlist);
         rlist &= ~1<<reg;
 
         if (l) ARM11_WriteReg(ARM11, reg, Bus11_Load32(ARM11, base), false, false);
@@ -252,7 +253,7 @@ void THUMB11_PUSH(struct ARM11MPCore* ARM11)
 {
     const u16 curinstr = ARM11->Instr.Data;
     u32 base = ARM11_GetReg(ARM11, 13);
-    const int numregs = __builtin_popcount(curinstr & 0x1FF);
+    const int numregs = stdc_count_ones(curinstr & 0x1FF);
     u8 rlist = curinstr & 0xFF;
     const bool r = curinstr & (1<<8);
     base -= (4*numregs);
@@ -261,7 +262,7 @@ void THUMB11_PUSH(struct ARM11MPCore* ARM11)
     
     while (rlist)
     {
-        int reg = __builtin_ctz(rlist);
+        int reg = stdc_trailing_zeros(rlist);
         rlist &= ~1<<reg;
 
         Bus11_Store32(ARM11, base, ARM11_GetReg(ARM11, reg));
@@ -288,7 +289,7 @@ void THUMB11_POP(struct ARM11MPCore* ARM11)
 
     while (rlist)
     {
-        int reg = __builtin_ctz(rlist);
+        int reg = stdc_trailing_zeros(rlist);
         rlist &= ~1<<reg;
 
         ARM11_WriteReg(ARM11, reg, Bus11_Load32(ARM11, base), false, false);

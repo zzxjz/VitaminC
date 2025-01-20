@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "arm.h"
+#include "../shared/arm.h"
 #include "../../utils.h"
 #include "bus.h"
 #include "../shared/bus.h"
@@ -408,14 +409,17 @@ void Bus9_Store32_Main(struct ARM946E_S* ARM9, const u32 addr, const u32 val)
     else printf("ARM9 - UNK STORE32: %08X %08X %08X\n", addr, val, ARM9->PC);
 }
 
-u32 Bus9_InstrLoad32(struct ARM946E_S* ARM9, u32 addr)
+struct Instruction Bus9_InstrLoad32(struct ARM946E_S* ARM9, u32 addr)
 {
+    if (!(ARM9_MPU_Lookup(ARM9, addr) & MPU_EXEC))
+        return (struct Instruction) { 0, true };
+
     addr &= ~0x3;
 
     if (!ARM9->CP15.Control.ITCMWriteOnly && !(addr & ARM9->ITCMMask))
-        return *(u32*)&ITCM[addr & (ITCM_PhySize-1)];
+        return (struct Instruction) { *(u32*)&ITCM[addr & (ITCM_PhySize-1)], false };
 
-    return Bus9_Load32_Main(ARM9, addr);
+    return (struct Instruction) { Bus9_Load32_Main(ARM9, addr), false };
 }
 
 u32 Bus9_Load32(struct ARM946E_S* ARM9, u32 addr)

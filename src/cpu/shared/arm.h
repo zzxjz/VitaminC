@@ -33,6 +33,18 @@ enum : u8
 	MODE_SYS = 0x1F,
 };
 
+enum : u8
+{
+	VECTOR_RST = 0x00,
+	VECTOR_UND = 0x04,
+	VECTOR_SVC = 0x08,
+	VECTOR_PAB = 0x0C,
+	VECTOR_DAB = 0x10,
+
+	VECTOR_IRQ = 0x18,
+	VECTOR_FIQ = 0x1C,
+};
+
 struct alignas(u64) Instruction
 {
 	u32 Data;

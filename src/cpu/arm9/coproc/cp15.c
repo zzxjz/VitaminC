@@ -1,8 +1,11 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdbit.h>
+#ifdef __AVX2__
+#include <immintrin.h>
+#endif
 #include "../arm.h"
 #include "../../../utils.h"
-#include <immintrin.h>
 
 void ARM9_UpdateITCM(struct ARM946E_S* ARM9)
 {
@@ -149,24 +152,22 @@ void ARM9_MPU_Update(struct ARM946E_S* ARM9)
 u8 ARM9_MPU_Lookup(const struct ARM946E_S* ARM9, const u32 addr)
 {
 #ifdef __AVX2__
-    __m256i addrs;
-    __m256i bases;
-    __m256i masks;
-
     const u32 tmp[8] = {addr, addr, addr, addr, addr, addr, addr, addr};
-    memcpy(&addrs, tmp, sizeof(addrs));
-    memcpy(&bases, ARM9->RegionBase, sizeof(bases));
-    memcpy(&masks, ARM9->RegionMask, sizeof(masks));
+    __m256i addrs; memcpy(&addrs, tmp, sizeof(addrs));
+    __m256i bases; memcpy(&bases, ARM9->RegionBase, sizeof(bases));
+    __m256i masks; memcpy(&masks, ARM9->RegionMask, sizeof(masks));
 
     u8 res = _mm256_movemask_ps(_mm256_castsi256_ps(_mm256_cmpeq_epi32(_mm256_and_si256(addrs, masks), bases)));
 
-    if (!res) return 0;
-    
-    u8 region = __builtin_ctz(res);
+    u8 region = stdc_trailing_zeros(res);
     
     return ARM9->RegionPerms[ARM9->Mode != MODE_USR][region];
 #else
-    static_assert(0, "NO AVX2 PRESENT; NO FALLBACK CODE FOR MPU LOOKUPS PRESENT; YELL AT JAKLY AND TRY AGAIN LATER :(\n");
+    #pragma unroll 8
+    for (int i = 0; i < 8; i++)
+    {
+
+    }
 #endif
 }
 

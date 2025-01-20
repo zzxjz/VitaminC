@@ -229,10 +229,14 @@ struct ARM946E_S
 	u32 ITCMMask;
 	u32 DTCMMask;
 	u32 DTCMBase;
-	bool Halted;
+	union
+	{
+		bool Halted;
+		bool WaitForInterrupt;
+	};
 	alignas(64) u32 RegionMask[8];
 	alignas(32) u32 RegionBase[8];
-	u8 RegionPerms[2][8];
+	u8 RegionPerms[2][9];
 };
 
 extern void (*ARM9_InstrLUT[0x1000]) (struct ARM946E_S* ARM9);
@@ -257,6 +261,10 @@ void ARM9_RunInterpreter(struct ARM946E_S* ARM9, u64 target);
 
 u8 ARM9_MPU_Lookup(const struct ARM946E_S* ARM9, const u32 addr);
 
+// exceptions
+void ARM9_UndefinedInstruction(struct ARM946E_S* ARM9);
+void ARM9_SupervisorCall(struct ARM946E_S* ARM9);
+void ARM9_PrefetchAbort(struct ARM946E_S* ARM9);
 
 // instr implementations
 void ARM9_ALU(struct ARM946E_S* ARM9);

@@ -170,7 +170,7 @@ struct ARM11MPCore
 			bool Thumb : 1;
 			bool FIQDisable : 1;
 			bool IRQDisable : 1;
-			bool ImpreciseAbortEnable : 1;
+			bool ImpreciseAbortDisable : 1;
 			bool DataBigEndian : 1;
 			u32 : 6;
 			u32 GE : 4;

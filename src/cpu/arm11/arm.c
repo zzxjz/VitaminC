@@ -149,6 +149,8 @@ char* ARM11_Init()
         _ARM11[i].PrivRgn.IRQConfig[1] = 0xAA;
         _ARM11[i].PrivRgn.IRQConfig[2] = 0xAA;
         _ARM11[i].PrivRgn.IRQConfig[3] = 0xAA;
+		_ARM11[i].FIQDisable = true;
+		_ARM11[i].IRQDisable = true;
 	}
 	return NULL;
 }
