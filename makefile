@@ -11,12 +11,12 @@ OBJS := $(shell find $(SRCDIR) -name '*.c')
 OBJS := $(patsubst $(SRCDIR)/%,$(OBJDIR)/%,$(OBJS:.c=.o))
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(DEPS)
-    @mkdir -p $(dir $@)
-    $(CC) -c -o $@ $< $(CFLAGS)
+	@mkdir -p $(dir $@)
+	$(CC) -c -o $@ $< $(CFLAGS)
 
 VitaminC: $(OBJS)
-    $(CC) -o $@ $^ $(CFLAGS)
+	$(CC) -o $@ $^ $(CFLAGS)
 
 .PHONY: clean
 clean:
-    @rm -rf build VitaminC
+	@rm -rf build VitaminC
