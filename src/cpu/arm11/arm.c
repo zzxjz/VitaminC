@@ -5,11 +5,6 @@
 #include "bus.h"
 #include "../shared/arm.h"
 
-inline u32 ARM11_ROR32(u32 val, u8 ror)
-{
-    return (val >> ror) | (val << (32-ror));
-}
-
 #define CHECK(x, y, z) if (PatternMatch((struct Pattern) {0b##x, 0b##y}, bits)) { z(ARM11); } else
 
 void THUMB11_DecodeMiscThumb(struct ARM11MPCore* ARM11)
@@ -303,7 +298,7 @@ void ARM11_MSRImm_Hints(struct ARM11MPCore* ARM11)
     if (op1) // msr immediate
     {
         const u8 rorimm = ((curinstr >> 8) & 0xF) * 2;
-        const u32 val = ARM11_ROR32(op2, rorimm);
+        const u32 val = ROR32(op2, rorimm);
         ARM11_MSR(ARM11, val);
     }
     else if (!op) // hints

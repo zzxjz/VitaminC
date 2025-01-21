@@ -46,7 +46,7 @@ void ARM11_LDR_STR(struct ARM11MPCore* ARM11)
         {
             if (shiftimm) // ror
             {
-                offset = ARM11_ROR32(offset, shiftimm);
+                offset = ROR32(offset, shiftimm);
             }
             else
             {

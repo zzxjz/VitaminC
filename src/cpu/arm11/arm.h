@@ -443,8 +443,6 @@ extern struct ARM11MPCore _ARM11[4];
 void* ARM11_InitARMInstrLUT(const u16 bits);
 void* ARM11_InitTHUMBInstrLUT(const u8 bits);
 
-u32 ARM11_ROR32(u32 val, u8 ror);
-
 char* ARM11_Init();
 void ARM11_UpdateMode(struct ARM11MPCore* ARM11, u8 oldmode, u8 newmode);
 void ARM11_Branch(struct ARM11MPCore* ARM11, const u32 addr, const bool restore);

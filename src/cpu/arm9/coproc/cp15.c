@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbit.h>
+
 #ifdef __AVX2__
 #include <immintrin.h>
 #endif
+
 #include "../arm.h"
 #include "../../../utils.h"
 
@@ -160,14 +162,16 @@ u8 ARM9_MPU_Lookup(const struct ARM946E_S* ARM9, const u32 addr)
     u8 res = _mm256_movemask_ps(_mm256_castsi256_ps(_mm256_cmpeq_epi32(_mm256_and_si256(addrs, masks), bases)));
 
     u8 region = stdc_trailing_zeros(res);
-    
+
     return ARM9->RegionPerms[ARM9->Mode != MODE_USR][region];
 #else
     #pragma unroll 8
     for (int i = 0; i < 8; i++)
     {
-
+        if ((addr & ARM9->RegionMask[i]) == ARM9->RegionBase[i])
+            return ARM9->RegionPerms[ARM9->Mode != MODE_USR][i];
     }
+    return MPU_NOACCESS;
 #endif
 }
 

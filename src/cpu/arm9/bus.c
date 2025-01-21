@@ -422,47 +422,62 @@ struct Instruction Bus9_InstrLoad32(struct ARM946E_S* ARM9, u32 addr)
     return (struct Instruction) { Bus9_Load32_Main(ARM9, addr), false };
 }
 
-u32 Bus9_Load32(struct ARM946E_S* ARM9, u32 addr)
+bool Bus9_Load32(struct ARM946E_S* ARM9, u32 addr, u32* ret)
 {
+    if (!(ARM9_MPU_Lookup(ARM9, addr) & MPU_READ))
+        return false;
+
     if (addr & 0x3) printf("ARM9 - UNALIGNED LOAD32: %08X %08X\n", addr, ARM9->PC);
     addr &= ~0x3;
 
     if (!ARM9->CP15.Control.ITCMWriteOnly && !(addr & ARM9->ITCMMask))
-        return *(u32*)&ITCM[addr & (ITCM_PhySize-1)];
+        *ret = *(u32*)&ITCM[addr & (ITCM_PhySize-1)];
 
-    if (!ARM9->CP15.Control.DTCMWriteOnly && ((addr & ARM9->DTCMMask) == ARM9->DTCMBase))
-        return *(u32*)&DTCM[addr & (DTCM_PhySize-1)];
+    else if (!ARM9->CP15.Control.DTCMWriteOnly && ((addr & ARM9->DTCMMask) == ARM9->DTCMBase))
+        *ret = *(u32*)&DTCM[addr & (DTCM_PhySize-1)];
 
-    return Bus9_Load32_Main(ARM9, addr);
+    *ret = Bus9_Load32_Main(ARM9, addr);
+    return true;
 }
 
-u16 Bus9_Load16(struct ARM946E_S* ARM9, u32 addr)
+bool Bus9_Load16(struct ARM946E_S* ARM9, u32 addr, u16* ret)
 {
+    if (!(ARM9_MPU_Lookup(ARM9, addr) & MPU_READ))
+        return false;
+
     if (addr & 0x1) printf("ARM9 - UNALIGNED LOAD16 %08X %08X\n", addr, ARM9->PC);
     addr &= ~0x1;
 
     if (!ARM9->CP15.Control.ITCMWriteOnly && !(addr & ARM9->ITCMMask))
-        return *(u16*)&ITCM[addr & (ITCM_PhySize-1)];
+        *ret = *(u16*)&ITCM[addr & (ITCM_PhySize-1)];
 
-    if (!ARM9->CP15.Control.DTCMWriteOnly && ((addr & ARM9->DTCMMask) == ARM9->DTCMBase))
-        return *(u16*)&DTCM[addr & (DTCM_PhySize-1)];
+    else if (!ARM9->CP15.Control.DTCMWriteOnly && ((addr & ARM9->DTCMMask) == ARM9->DTCMBase))
+        *ret = *(u16*)&DTCM[addr & (DTCM_PhySize-1)];
 
-    return Bus9_Load16_Main(ARM9, addr);
+    *ret = Bus9_Load16_Main(ARM9, addr);
+    return true;
 }
 
-u8 Bus9_Load8(struct ARM946E_S* ARM9, u32 addr)
+bool Bus9_Load8(struct ARM946E_S* ARM9, u32 addr, u8* ret)
 {
+    if (!(ARM9_MPU_Lookup(ARM9, addr) & MPU_READ))
+        return false;
+
     if (!ARM9->CP15.Control.ITCMWriteOnly && !(addr & ARM9->ITCMMask))
-        return ITCM[addr & (ITCM_PhySize-1)];
+        *ret = ITCM[addr & (ITCM_PhySize-1)];
 
-    if (!ARM9->CP15.Control.DTCMWriteOnly && ((addr & ARM9->DTCMMask) == ARM9->DTCMBase))
-        return DTCM[addr & (DTCM_PhySize-1)];
+    else if (!ARM9->CP15.Control.DTCMWriteOnly && ((addr & ARM9->DTCMMask) == ARM9->DTCMBase))
+        *ret = DTCM[addr & (DTCM_PhySize-1)];
 
-    return Bus9_Load8_Main(ARM9, addr);
+    else *ret = Bus9_Load8_Main(ARM9, addr);
+    return true;
 }
 
-void Bus9_Store32(struct ARM946E_S* ARM9, u32 addr, const u32 val)
+bool Bus9_Store32(struct ARM946E_S* ARM9, u32 addr, const u32 val)
 {
+    if (!(ARM9_MPU_Lookup(ARM9, addr) & MPU_WRITE))
+        return false;
+
     if (addr & 0x3) printf("ARM9 - UNALIGNED STORE32: %08X %08X\n", addr, ARM9->PC);
     addr &= ~0x3;
 
@@ -473,10 +488,14 @@ void Bus9_Store32(struct ARM946E_S* ARM9, u32 addr, const u32 val)
         *(u32*)&DTCM[addr & (DTCM_PhySize-1)] = val;
 
     else Bus9_Store32_Main(ARM9, addr, val);
+    return true;
 }
 
-void Bus9_Store16(struct ARM946E_S* ARM9, u32 addr, const u16 val)
+bool Bus9_Store16(struct ARM946E_S* ARM9, u32 addr, const u16 val)
 {
+    if (!(ARM9_MPU_Lookup(ARM9, addr) & MPU_WRITE))
+        return false;
+
     if (addr & 0x1) printf("ARM9 - UNALIGNED STORE16: %08X %08X\n", addr, ARM9->PC);
     addr &= ~0x1;
 
@@ -487,10 +506,14 @@ void Bus9_Store16(struct ARM946E_S* ARM9, u32 addr, const u16 val)
         *(u16*)&DTCM[addr & (DTCM_PhySize-1)] = val;
 
     else Bus9_Store16_Main(ARM9, addr, val);
+    return true;
 }
 
-void Bus9_Store8(struct ARM946E_S* ARM9, u32 addr, const u8 val)
+bool Bus9_Store8(struct ARM946E_S* ARM9, u32 addr, const u8 val)
 {
+    if (!(ARM9_MPU_Lookup(ARM9, addr) & MPU_WRITE))
+        return false;
+
     if (!(addr & ARM9->ITCMMask))
         ITCM[addr & (ITCM_PhySize-1)] = val;
 
@@ -498,4 +521,5 @@ void Bus9_Store8(struct ARM946E_S* ARM9, u32 addr, const u8 val)
         DTCM[addr & (DTCM_PhySize-1)] = val;
 
     else Bus9_Store8_Main(ARM9, addr, val);
+    return true;
 }

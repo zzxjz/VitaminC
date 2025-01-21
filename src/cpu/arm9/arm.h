@@ -247,8 +247,6 @@ extern struct ARM946E_S _ARM9;
 void* ARM9_InitARMInstrLUT(const u16 bits);
 void* ARM9_InitTHUMBInstrLUT(const u8 bits);
 
-u32 ARM9_ROR32(u32 val, u8 ror);
-
 char* ARM9_Init();
 void ARM9_UpdateMode(struct ARM946E_S* ARM9, u8 oldmode, u8 newmode);
 void ARM9_Branch(struct ARM946E_S* ARM9, const u32 addr, const bool restore);
@@ -265,6 +263,8 @@ u8 ARM9_MPU_Lookup(const struct ARM946E_S* ARM9, const u32 addr);
 void ARM9_UndefinedInstruction(struct ARM946E_S* ARM9);
 void ARM9_SupervisorCall(struct ARM946E_S* ARM9);
 void ARM9_PrefetchAbort(struct ARM946E_S* ARM9);
+void ARM9_DataAbort(struct ARM946E_S* ARM9);
+void ARM9_InterruptRequest(struct ARM946E_S* ARM9);
 
 // instr implementations
 void ARM9_ALU(struct ARM946E_S* ARM9);

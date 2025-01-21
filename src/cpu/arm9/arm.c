@@ -4,12 +4,6 @@
 #include "../../utils.h"
 #include "bus.h"
 
-
-inline u32 ARM9_ROR32(u32 val, u8 ror)
-{
-    return (val >> ror) | (val << (32-ror));
-}
-
 #define CHECK(x, y, z) if (PatternMatch((struct Pattern) {0b##x, 0b##y}, bits)) { z(ARM9); } else
 
 void THUMB9_DecodeMiscThumb(struct ARM946E_S* ARM9)
@@ -159,7 +153,7 @@ void ARM9_UpdateMode(struct ARM946E_S* ARM9, u8 oldmode, u8 newmode)
         memcpy(&ARM9->USR.R8, &ARM9->R8, 5*4);
         memcpy(&ARM9->ABT.SP, &ARM9->SP, 2*4);
         break;
-    
+
     case 0x1B: // UND
         memcpy(&ARM9->USR.R8, &ARM9->R8, 5*4);
         memcpy(&ARM9->UND.SP, &ARM9->SP, 2*4);
@@ -196,7 +190,7 @@ void ARM9_UpdateMode(struct ARM946E_S* ARM9, u8 oldmode, u8 newmode)
         memcpy(&ARM9->SP, &ARM9->ABT.SP, 2*4);
         ARM9->SPSR = &ARM9->ABT.SPSR;
         break;
-    
+
     case 0x1B: // UND
         memcpy(&ARM9->R8, &ARM9->USR.R8, 5*4);
         memcpy(&ARM9->SP, &ARM9->UND.SP, 2*4);
@@ -208,7 +202,7 @@ void ARM9_UpdateMode(struct ARM946E_S* ARM9, u8 oldmode, u8 newmode)
 void ARM9_UndefinedInstruction(struct ARM946E_S* ARM9)
 {
     printf("ARM9 - UNDEFINED INSTRUCTION: PC = %08X INSTR = %08X\n", ARM9->PC, ARM9->Instr[0].Data);
-    
+
     ARM9_UpdateMode(ARM9, ARM9->Mode, MODE_UND);
     *ARM9->SPSR = ARM9->CPSR;
     ARM9->LR = ARM9_GetReg(ARM9, 15) - (ARM9->Thumb ? 2 : 4);
@@ -331,7 +325,7 @@ void ARM9_MSRImm(struct ARM946E_S* ARM9)
     const u8 op2 = curinstr & 0xFF;
 
     const u8 rorimm = ((curinstr >> 8) & 0xF) * 2;
-    const u32 val = ARM9_ROR32(op2, rorimm);
+    const u32 val = ROR32(op2, rorimm);
     ARM9_MSR(ARM9, val);
 }
 
@@ -422,7 +416,7 @@ void ARM9_StartExec(struct ARM946E_S* ARM9)
 {
     const u32 instr = ARM9->Instr[0].Data;
     const u8 condcode = instr >> 28;
-    
+
     // Todo: handle IRQs
     if (ARM9->Instr[0].PrefetchAbort)
     {

@@ -38,6 +38,12 @@ Credits:
 	NanoboyAdvance:
 		Also served as a useful reference for some ARM instruction implementations.
 
+	GBATEK:
+		Invaluable reference
+
+	3DBrew:
+		Invaluable reference
+
 	burhanr13:
 		Offered his makefile. (I yoinked a couple lines from it.) (Shoutouts Tanuki3DS!!!)
 

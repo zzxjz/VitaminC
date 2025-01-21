@@ -218,7 +218,7 @@ void ARM9_ALU(struct ARM946E_S* ARM9)
         const u8 imm8 = curinstr & 0xFF;
         const u8 rorimm = ((curinstr >> 8) & 0xF) * 2;
 
-        shifterout = ARM9_ROR32(imm8, rorimm);
+        shifterout = ROR32(imm8, rorimm);
         
         if (s && rorimm)
             ARM9->Carry = shifterout >> 31;
@@ -307,7 +307,7 @@ void ARM9_ALU(struct ARM946E_S* ARM9)
 
             if (rorimm) // ror imm
             {
-                shifterout = ARM9_ROR32(rm, rorimm);
+                shifterout = ROR32(rm, rorimm);
 
                 if (s)
                     ARM9->Carry = shifterout >> 31;
@@ -325,7 +325,7 @@ void ARM9_ALU(struct ARM946E_S* ARM9)
         {
             const u8 rs = ARM9_GetReg(ARM9, (curinstr >> 8) & 0xF) & 0xFF;
 
-            shifterout = ARM9_ROR32(rm, rs);
+            shifterout = ROR32(rm, rs);
 
             if (s && rs)
                 ARM9->Carry = shifterout >> 31;
@@ -401,7 +401,7 @@ void THUMB9_ROR(struct ARM946E_S* ARM9, const u8 rd, const u32 rdval, const u32 
     u64 rorout = rdval;
     if (rs)
     {
-        rorout = ARM9_ROR32(rorout, rs);
+        rorout = ROR32(rorout, rs);
         ARM9->Carry = rorout >> 31;
         rorout &= 0xFFFFFFFF;
     }

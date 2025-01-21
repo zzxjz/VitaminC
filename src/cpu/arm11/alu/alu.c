@@ -218,7 +218,7 @@ void ARM11_ALU(struct ARM11MPCore* ARM11)
         const u8 imm8 = curinstr & 0xFF;
         const u8 rorimm = ((curinstr >> 8) & 0xF) * 2;
 
-        shifterout = ARM11_ROR32(imm8, rorimm);
+        shifterout = ROR32(imm8, rorimm);
         
         if (s && rorimm)
             ARM11->Carry = shifterout >> 31;
@@ -307,7 +307,7 @@ void ARM11_ALU(struct ARM11MPCore* ARM11)
 
             if (rorimm) // ror imm
             {
-                shifterout = ARM11_ROR32(rm, rorimm);
+                shifterout = ROR32(rm, rorimm);
 
                 if (s)
                     ARM11->Carry = shifterout >> 31;
@@ -325,7 +325,7 @@ void ARM11_ALU(struct ARM11MPCore* ARM11)
         {
             const u8 rs = ARM11_GetReg(ARM11, (curinstr >> 8) & 0xF) & 0xFF;
 
-            shifterout = ARM11_ROR32(rm, rs);
+            shifterout = ROR32(rm, rs);
 
             if (s && rs)
                 ARM11->Carry = shifterout >> 31;
@@ -401,7 +401,7 @@ void THUMB11_ROR(struct ARM11MPCore* ARM11, const u8 rd, const u32 rdval, const 
     u64 rorout = rdval;
     if (rs)
     {
-        rorout = ARM11_ROR32(rorout, rs);
+        rorout = ROR32(rorout, rs);
         ARM11->Carry = rorout >> 31;
         rorout &= 0xFFFFFFFF;
     }

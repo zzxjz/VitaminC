@@ -19,7 +19,9 @@ typedef uint64_t u64;
 // todo: actually add fallback paths if these dont exist for w/e-
 #define likely(x) __builtin_expect(!!x, 1)
 #define unlikely(x) __builtin_expect(!!x, 0)
-#define bswap(x) _Generic((x), u16: __builtin_bswap16(x), u32: __builtin_bswap32(x))
+#define bswap(x) _Generic((x), \
+       u16: __builtin_bswap16, \
+       u32: __builtin_bswap32)((x))
 
 enum
 {
@@ -36,4 +38,9 @@ struct Pattern
 inline bool PatternMatch(const struct Pattern pattern, const u32 bits)
 {
     return ((bits & pattern.mask) == pattern.bits);
+}
+
+inline u32 ROR32(u32 val, u8 ror)
+{
+    return (val >> ror) | (val << (32-ror));
 }
