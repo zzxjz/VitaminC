@@ -433,17 +433,16 @@ struct ARM11MPCore
             bool WaitForEvent : 1;
         };
     };
+    struct Console* console;
 };
 
 extern void (*ARM11_InstrLUT[0x1000]) (struct ARM11MPCore* ARM11);
 extern void (*THUMB11_InstrLUT[0x40]) (struct ARM11MPCore* ARM11);
 
-extern struct ARM11MPCore _ARM11[4];
-
 void* ARM11_InitARMInstrLUT(const u16 bits);
 void* ARM11_InitTHUMBInstrLUT(const u8 bits);
 
-char* ARM11_Init();
+void ARM11_HardReset(struct Console* console);
 void ARM11_UpdateMode(struct ARM11MPCore* ARM11, u8 oldmode, u8 newmode);
 void ARM11_Branch(struct ARM11MPCore* ARM11, const u32 addr, const bool restore);
 u32 ARM11_GetReg(struct ARM11MPCore* ARM11, const int reg);

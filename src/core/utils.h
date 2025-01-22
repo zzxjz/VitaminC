@@ -40,7 +40,7 @@ inline bool PatternMatch(const struct Pattern pattern, const u32 bits)
     return ((bits & pattern.mask) == pattern.bits);
 }
 
-inline u32 ROR32(u32 val, u8 ror)
+inline u32 ROR32(u64 val, u8 ror) // u64 solely to make ub-san shutup!!
 {
     return (val >> ror) | (val << (32-ror));
 }

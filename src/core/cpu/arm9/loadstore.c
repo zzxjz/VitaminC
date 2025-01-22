@@ -112,7 +112,7 @@ void ARM9_LDR_STR(struct ARM946E_S* ARM9)
 
     if (!p && w) ARM9->Mode = oldmode; // restore old mode
 
-    if (!success) return ARM9_DataAbort(ARM9); // skip writeback if we data aborted
+    if (!success) return ARM9_DataAbort(ARM9, !l, addr); // skip writeback if we data aborted
 
     if (w || !p)
     {
@@ -150,7 +150,7 @@ void ARM9_LDM_STM(struct ARM946E_S* ARM9)
         int reg = stdc_trailing_zeros(rlist);
         rlist &= ~1<<reg;
 
-        if (p^u) base += 4;
+        if (p^!u) base += 4;
 
         if (l)
         {
@@ -163,12 +163,12 @@ void ARM9_LDM_STM(struct ARM946E_S* ARM9)
             success &= Bus9_Store32(ARM9, base, ARM9_GetReg(ARM9, reg));
         }
 
-        if (!(p^u)) base += 4;
+        if (!(p^!u)) base += 4;
     }
 
     if (s && (!l || !r15)) ARM9_UpdateMode(ARM9, 0x10, ARM9->Mode); // restore actual mode's regs
 
-    if (!success) return ARM9_DataAbort(ARM9);
+    if (!success) return ARM9_DataAbort(ARM9, !l, base);
 
     if (w)
     {
@@ -193,7 +193,7 @@ void THUMB9_LDRPCRel(struct ARM946E_S* ARM9)
     u32 val;
     if (Bus9_Load32(ARM9, addr, &val))
         ARM9_WriteReg(ARM9, rd, val, false, false);
-    else ARM9_DataAbort(ARM9);
+    else ARM9_DataAbort(ARM9, false, addr);
 }
 
 void THUMB9_LDR_STR_SPRel(struct ARM946E_S* ARM9)
@@ -218,7 +218,7 @@ void THUMB9_LDR_STR_SPRel(struct ARM946E_S* ARM9)
     }
     else success = Bus9_Store32(ARM9, addr, ARM9_GetReg(ARM9, rd));
 
-    if (!success) ARM9_DataAbort(ARM9);
+    if (!success) ARM9_DataAbort(ARM9, !l, addr);
 }
 
 void THUMB9_LDR_STR_Reg(struct ARM946E_S* ARM9)
@@ -244,7 +244,7 @@ void THUMB9_LDR_STR_Reg(struct ARM946E_S* ARM9)
     case 0x7: { u16 val; if ((success = Bus9_Load16(ARM9, addr, &val))) ARM9_WriteReg(ARM9, rd, (s32)(s16)val, false, false); break; } // ldrsh
     }
 
-    if (!success) ARM9_DataAbort(ARM9);
+    if (!success) ARM9_DataAbort(ARM9, opcode < 0x3, addr);
 }
 
 void THUMB9_LDR_STR_Imm5(struct ARM946E_S* ARM9)
@@ -266,7 +266,7 @@ void THUMB9_LDR_STR_Imm5(struct ARM946E_S* ARM9)
     case 0b11: { u8  val; if ((success = Bus9_Load8 (ARM9, addr + (imm5  ), &val))) ARM9_WriteReg(ARM9, rd, val, false, false); break; } // ldrb
     }
 
-    if (!success) ARM9_DataAbort(ARM9);
+    if (!success) ARM9_DataAbort(ARM9, !(opcode & 0x1), addr);
 }
 
 void THUMB9_LDRH_STRH_Imm5(struct ARM946E_S* ARM9)
@@ -288,7 +288,7 @@ void THUMB9_LDRH_STRH_Imm5(struct ARM946E_S* ARM9)
     }
     else success = Bus9_Store16(ARM9, addr, ARM9_GetReg(ARM9, rd));
 
-    if (!success) ARM9_DataAbort(ARM9);
+    if (!success) ARM9_DataAbort(ARM9, !l, addr);
 }
 
 void THUMB9_LDMIA_STMIA(struct ARM946E_S* ARM9)
@@ -316,7 +316,7 @@ void THUMB9_LDMIA_STMIA(struct ARM946E_S* ARM9)
         base += 4;
     }
 
-    if (!success) return ARM9_DataAbort(ARM9);
+    if (!success) return ARM9_DataAbort(ARM9, !l, base);
 
     ARM9_WriteReg(ARM9, rn, base, false, false);
 }
@@ -350,7 +350,7 @@ void THUMB9_PUSH(struct ARM946E_S* ARM9)
         base += 4;
     }
 
-    if (!success) return ARM9_DataAbort(ARM9);
+    if (!success) return ARM9_DataAbort(ARM9, true, base);
 
     ARM9_WriteReg(ARM9, 13, wbbase, false, false);
 }
@@ -378,7 +378,7 @@ void THUMB9_POP(struct ARM946E_S* ARM9)
     if (r)
     {
         int reg = 15;
-        
+
         u32 val;
         if ((success &= Bus9_Load32(ARM9, base, &val)))
             ARM9_WriteReg(ARM9, reg, val, false, true);
@@ -386,7 +386,7 @@ void THUMB9_POP(struct ARM946E_S* ARM9)
         base += 4;
     }
 
-    if (!success) return ARM9_DataAbort(ARM9);
+    if (!success) return ARM9_DataAbort(ARM9, false, base);
 
     ARM9_WriteReg(ARM9, 13, base, false, false);
 }

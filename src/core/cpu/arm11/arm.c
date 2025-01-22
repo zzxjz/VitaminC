@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "arm.h"
 #include "../../utils.h"
+#include "../../emu.h"
 #include "bus.h"
 #include "../shared/arm.h"
 
@@ -11,10 +12,10 @@ void THUMB11_DecodeMiscThumb(struct ARM11MPCore* ARM11)
 {
     const u16 bits = (ARM11->Instr.Data >> 3) & 0x1FF;
 
-    CHECK(000000000, 111100000, THUMB11_ADD_SUB_SP) // adjust stack ptr
-    CHECK(001000000, 111100000, THUMB11_Extend) // sign/zero ext
-    CHECK(010000000, 111000000, THUMB11_PUSH) // push
-    CHECK(110000000, 111000000, THUMB11_POP) // pop
+    CHECK(0000'0000'0, 1111'0000'0, THUMB11_ADD_SUB_SP) // adjust stack ptr
+    CHECK(0010'0000'0, 1111'0000'0, THUMB11_Extend) // sign/zero ext
+    CHECK(0100'0000'0, 1110'0000'0, THUMB11_PUSH) // push
+    CHECK(1100'0000'0, 1110'0000'0, THUMB11_POP) // pop
         //CHECK(011001000, 111111110, NULL) // mystery meat instruction :D
     //CHECK(011001010, 111111110, NULL) // setend
     //CHECK(011001100, 111111101, NULL) // cps
@@ -32,91 +33,91 @@ void THUMB11_DecodeMiscThumb(struct ARM11MPCore* ARM11)
 void* ARM11_InitARMInstrLUT(const u16 bits)
 {
     // media instruction space
-    CHECK(011000000001, 111110000001, NULL) // parallel add/sub
-    CHECK(011010000001, 111111110011, NULL) // halfword pack
-    CHECK(011010100001, 111110100011, NULL) // word saturate
-    CHECK(011010100011, 111110111111, NULL) // parallel halfword saturate
-    CHECK(011010110011, 111111111111, NULL) // byte reverse word
-    CHECK(011010111011, 111111111111, NULL) // byte reverse packed halfword
-    CHECK(011011111011, 111111111111, NULL) // byte reverse signed halfword
-    CHECK(011010001011, 111111111111, NULL) // select bytes
-    CHECK(011010000111, 111110001111, NULL) // sign/zero extend (add)
-    CHECK(011100000001, 111110000001, NULL) // multiplies (type 3)
-    CHECK(011110000001, 111111111111, NULL) // unsigned sum of absolute differences (also acc variant?)
+    CHECK(0110'0000'0001, 1111'1000'0001, NULL) // parallel add/sub
+    CHECK(0110'1000'0001, 1111'1111'0011, NULL) // halfword pack
+    CHECK(0110'1010'0001, 1111'1010'0011, NULL) // word saturate
+    CHECK(0110'1010'0011, 1111'1011'1111, NULL) // parallel halfword saturate
+    CHECK(0110'1011'0011, 1111'1111'1111, NULL) // byte reverse word
+    CHECK(0110'1011'1011, 1111'1111'1111, NULL) // byte reverse packed halfword
+    CHECK(0110'1111'1011, 1111'1111'1111, NULL) // byte reverse signed halfword
+    CHECK(0110'1000'1011, 1111'1111'1111, NULL) // select bytes
+    CHECK(0110'1000'0111, 1111'1000'1111, NULL) // sign/zero extend (add)
+    CHECK(0111'0000'0001, 1111'1000'0001, NULL) // multiplies (type 3)
+    CHECK(0111'1000'0001, 1111'1111'1111, NULL) // unsigned sum of absolute differences (also acc variant?)
     // multiply extension space
-    CHECK(000000001001, 111111001111, ARM11_MUL_MLA) // short multiplies
-    CHECK(000001001001, 111111111111, NULL) // umaal
-    CHECK(000010001001, 111110001111, NULL) // long multiplies
+    CHECK(000'00000'1001, 1111'1100'1111, ARM11_MUL_MLA) // short multiplies
+    CHECK(000'00100'1001, 1111'1111'1111, NULL) // umaal
+    CHECK(000'01000'1001, 1111'1000'1111, NULL) // long multiplies
     // control/dsp extension space
-    CHECK(000100000000, 111110111111, ARM11_MRS) // mrs
-    CHECK(000100100000, 111110111111, ARM11_MSRReg) // msr (reg)
-    CHECK(001100100000, 111110110000, ARM11_MSRImm_Hints) // msr (imm) / hints
-    CHECK(000100100001, 111111111101, ARM11_BX_BLXReg) // bx/blx (reg)
-    CHECK(000100100010, 111111111111, NULL) // bxj
-    CHECK(000101100001, 111111111111, NULL) // clz
-    CHECK(000100000100, 111110011111, NULL) // q(d)add/sub
-    CHECK(000100100111, 111111111111, NULL) // bkpt
-    CHECK(000100001000, 111110011001, NULL) // signed multiplies
+    CHECK(0001'0000'0000, 1111'1011'1111, ARM11_MRS) // mrs
+    CHECK(0001'0010'0000, 1111'1011'1111, ARM11_MSRReg) // msr (reg)
+    CHECK(0011'0010'0000, 1111'1011'0000, ARM11_MSRImm_Hints) // msr (imm) / hints
+    CHECK(0001'0010'0001, 1111'1111'1101, ARM11_BX_BLXReg) // bx/blx (reg)
+    CHECK(0001'0010'0010, 1111'1111'1111, NULL) // bxj
+    CHECK(0001'0110'0001, 1111'1111'1111, NULL) // clz
+    CHECK(0001'0000'0100, 1111'1001'1111, NULL) // q(d)add/sub
+    CHECK(0001'0010'0111, 1111'1111'1111, NULL) // bkpt
+    CHECK(0001'0000'1000, 1111'1001'1001, NULL) // signed multiplies
     // load/store extension space
-    CHECK(000100001001, 111110111111, NULL) // swp
-    CHECK(000110001001, 111110001111, NULL) // ldrex/strex (and variants)
-    CHECK(000000001011, 111000001111, NULL) // ldrh/strh
-    CHECK(000000011101, 111000011101, NULL) // ldrsh/ldrsb
-    CHECK(000000001101, 111000011101, NULL) // ldrd/strd
+    CHECK(0001'0000'1001, 1111'1011'1111, NULL) // swp
+    CHECK(0001'1000'1001, 1111'1000'1111, NULL) // ldrex/strex (and variants)
+    CHECK(0000'0000'1011, 1110'0000'1111, NULL) // ldrh/strh
+    CHECK(0000'0001'1101, 1110'0001'1101, NULL) // ldrsh/ldrsb
+    CHECK(0000'0000'1101, 1110'0001'1101, NULL) // ldrd/strd
     // explicitly defined undefined space
-    CHECK(011111111111, 111111111111, NULL) // undef instr
+    CHECK(0111'1111'1111, 1111'1111'1111, NULL) // undef instr
     // coproc extension space
-    CHECK(110000000000, 111110100000, NULL) // coprocessor?
+    CHECK(1100'0000'0000, 1111'1010'0000, NULL) // coprocessor?
     // data processing
-    CHECK(000000000000, 110000000000, ARM11_ALU) // alu
+    CHECK(0000'0000'0000, 1100'0000'0000, ARM11_ALU) // alu
     // load/store
-    CHECK(010000000000, 110000000000, ARM11_LDR_STR) // load/store
+    CHECK(0100'0000'0000, 1100'0000'0000, ARM11_LDR_STR) // load/store
     // coprocessor data processing
-    CHECK(111000000000, 111100000001, NULL) // cdp?
+    CHECK(1110'0000'0000, 1111'0000'0001, NULL) // cdp?
     // coprocessor register transfers
-    CHECK(111000000001, 111100010001, ARM11_MCR_MRC) // mcr
-    CHECK(111000010001, 111100010001, ARM11_MCR_MRC) // mrc
+    CHECK(1110'0000'0001, 1111'0001'0001, ARM11_MCR_MRC) // mcr
+    CHECK(1110'0001'0001, 1111'0001'0001, ARM11_MCR_MRC) // mrc
     // multiple load/store
-    CHECK(100000000000, 111000000000, ARM11_LDM_STM) // ldm/stm
+    CHECK(1000'0000'0000, 1110'0000'0000, ARM11_LDM_STM) // ldm/stm
     // branch
-    CHECK(101000000000, 111000000000, ARM11_B_BL) // b/bl
+    CHECK(1010'0000'0000, 1110'0000'0000, ARM11_B_BL) // b/bl
 
     return NULL; // undef instr (raise exception)
 }
 
 void* ARM11_InitTHUMBInstrLUT(const u8 bits)
 {
-    CHECK(000110, 111110, THUMB11_ADD_SUB_Reg_Imm3); // add/sub reg/imm
-    CHECK(000000, 111000, THUMB11_ShiftImm); // shift by imm
-    CHECK(001000, 111000, THUMB11_ADD_SUB_CMP_MOV_Imm8); // add/sub/cmp/mov imm
-    CHECK(010000, 111111, THUMB11_ALU); // data proc reg
-    CHECK(010001, 111111, THUMB11_ALU_HI); // spec data proc/b(l)x
-    CHECK(010010, 111110, THUMB11_LDRPCRel); // ldr pcrel
-    CHECK(010100, 111100, THUMB11_LDR_STR_Reg); // ldr/str reg
-    CHECK(011000, 111000, THUMB11_LDR_STR_Imm5); // (ld/st)r(b) imm
-    CHECK(100000, 111100, THUMB11_LDRH_STRH_Imm5); // ldrh/strh imm
-    CHECK(100100, 111100, THUMB11_LDR_STR_SPRel); // ldr/str sprel
-    CHECK(101000, 111100, THUMB11_ADD_SP_PCRel); // add sp/pcrel
-    CHECK(101100, 111100, THUMB11_DecodeMiscThumb); // misc
-    CHECK(110000, 111100, THUMB11_LDMIA_STMIA); // ldm/stm
-    CHECK(110100, 111100, THUMB11_CondB_SWI); // cond b/udf/svc
-    CHECK(111000, 111110, THUMB11_B); // b
-    CHECK(111100, 111110, THUMB11_BL_BLX_LO); // bl(x) prefix
-    CHECK(111010, 111010, THUMB11_BL_BLX_HI); // bl(x) suffix
+    CHECK(0001'10, 1111'10, THUMB11_ADD_SUB_Reg_Imm3); // add/sub reg/imm
+    CHECK(0000'00, 1110'00, THUMB11_ShiftImm); // shift by imm
+    CHECK(0010'00, 1110'00, THUMB11_ADD_SUB_CMP_MOV_Imm8); // add/sub/cmp/mov imm
+    CHECK(0100'00, 1111'11, THUMB11_ALU); // data proc reg
+    CHECK(0100'01, 1111'11, THUMB11_ALU_HI); // spec data proc/b(l)x
+    CHECK(0100'10, 1111'10, THUMB11_LDRPCRel); // ldr pcrel
+    CHECK(0101'00, 1111'00, THUMB11_LDR_STR_Reg); // ldr/str reg
+    CHECK(0110'00, 1110'00, THUMB11_LDR_STR_Imm5); // (ld/st)r(b) imm
+    CHECK(1000'00, 1111'00, THUMB11_LDRH_STRH_Imm5); // ldrh/strh imm
+    CHECK(1001'00, 1111'00, THUMB11_LDR_STR_SPRel); // ldr/str sprel
+    CHECK(1010'00, 1111'00, THUMB11_ADD_SP_PCRel); // add sp/pcrel
+    CHECK(1011'00, 1111'00, THUMB11_DecodeMiscThumb); // misc
+    CHECK(1100'00, 1111'00, THUMB11_LDMIA_STMIA); // ldm/stm
+    CHECK(1101'00, 1111'00, THUMB11_CondB_SWI); // cond b/udf/svc
+    CHECK(1110'00, 1111'10, THUMB11_B); // b
+    CHECK(1111'00, 1111'10, THUMB11_BL_BLX_LO); // bl(x) prefix
+    CHECK(1110'10, 1110'10, THUMB11_BL_BLX_HI); // bl(x) suffix
     return NULL; // udf
 }
 
 void* ARM11_DecodeUncondInstr(const u32 bits)
 {
-    CHECK(0001000000000000000000000000, 1111111100010000000000100000, NULL) // cps
-    CHECK(0001000000010000000000000000, 1111111111110000000011110000, NULL) // setend
-    CHECK(0101010100001111000000000000, 1101011100001111000000000000, ARM11_PLD) // pld
-    CHECK(1000010011010000010100000000, 1110010111110000111100000000, NULL) // srs
-    CHECK(1000000100000000101000000000, 1110010100000000111100000000, NULL) // rfe
-    CHECK(1010000000000000000000000000, 1110000000000000000000000000, ARM11_BLX_Imm) // blx (imm)
-    CHECK(1100010000000000000000000000, 1111111000000000000000000000, NULL) // cp double reg
-    CHECK(1110000000000000000000010000, 1111000000000000000000010000, NULL) // cp reg transfer?
-    CHECK(1111000000000000000000000000, 1111000000000000000000000000, NULL) // undef instr
+    CHECK(0001'0000'0000'0000'0000'0000'0000, 1111'1111'0001'0000'0000'0010'0000, NULL) // cps
+    CHECK(0001'0000'0001'0000'0000'0000'0000, 1111'1111'1111'0000'0000'1111'0000, NULL) // setend
+    CHECK(0101'0101'0000'1111'0000'0000'0000, 1101'0111'0000'1111'0000'0000'0000, ARM11_PLD) // pld
+    CHECK(1000'0100'1101'0000'0101'0000'0000, 1110'0101'1111'0000'1111'0000'0000, NULL) // srs
+    CHECK(1000'0001'0000'0000'1010'0000'0000, 1110'0101'0000'0000'1111'0000'0000, NULL) // rfe
+    CHECK(1010'0000'0000'0000'0000'0000'0000, 1110'0000'0000'0000'0000'0000'0000, ARM11_BLX_Imm) // blx (imm)
+    CHECK(1100'0100'0000'0000'0000'0000'0000, 1111'1110'0000'0000'0000'0000'0000, NULL) // cp double reg
+    CHECK(1110'0000'0000'0000'0000'0001'0000, 1111'0000'0000'0000'0000'0001'0000, NULL) // cp reg transfer?
+    CHECK(1111'0000'0000'0000'0000'0000'0000, 1111'0000'0000'0000'0000'0000'0000, NULL) // undef instr
     return NULL; // undefined instr? (checkme)
 }
 
@@ -125,29 +126,29 @@ void* ARM11_DecodeUncondInstr(const u32 bits)
 alignas(64) void (*ARM11_InstrLUT[0x1000]) (struct ARM11MPCore* ARM11);
 alignas(64) void (*THUMB11_InstrLUT[0x40]) (struct ARM11MPCore* ARM11);
 
-struct ARM11MPCore _ARM11[4];
-
-char* ARM11_Init()
+// WARNING: only pass a pointer to the __FIRST__ member of the 4 element "ARM11" array to this function
+void ARM11_HardReset(struct Console* console)
 {
-    memset(_ARM11, 0, sizeof(_ARM11));
+    struct ARM11MPCore* ARM11 = console->ARM11;
+
     for (int i = 0; i < 4; i++)
     {
-        _ARM11[i].NextStep = ARM11_StartFetch;
-        ARM11_Branch(&_ARM11[i], 0, false);
-        _ARM11[i].Mode = MODE_SVC;
-        _ARM11[i].SPSR = &_ARM11[i].SVC.SPSR;
-        _ARM11[i].CP15.Control = 0x00054078;
-        _ARM11[i].CP15.AuxControl = 0x0F;
-        _ARM11[i].CP15.DCacheLockdown = 0xFFFFFFF0;
-        _ARM11[i].CPUID = i;
-        _ARM11[i].PrivRgn.IRQConfig[0] = 0xAA;
-        _ARM11[i].PrivRgn.IRQConfig[1] = 0xAA;
-        _ARM11[i].PrivRgn.IRQConfig[2] = 0xAA;
-        _ARM11[i].PrivRgn.IRQConfig[3] = 0xAA;
-        _ARM11[i].FIQDisable = true;
-        _ARM11[i].IRQDisable = true;
+        ARM11[i].console = console;
+        ARM11[i].NextStep = ARM11_StartFetch;
+        ARM11_Branch(&ARM11[i], 0, false);
+        ARM11[i].Mode = MODE_SVC;
+        ARM11[i].SPSR = &ARM11[i].SVC.SPSR;
+        ARM11[i].CP15.Control = 0x00054078;
+        ARM11[i].CP15.AuxControl = 0x0F;
+        ARM11[i].CP15.DCacheLockdown = 0xFFFFFFF0;
+        ARM11[i].CPUID = i;
+        ARM11[i].PrivRgn.IRQConfig[0] = 0xAA;
+        ARM11[i].PrivRgn.IRQConfig[1] = 0xAA;
+        ARM11[i].PrivRgn.IRQConfig[2] = 0xAA;
+        ARM11[i].PrivRgn.IRQConfig[3] = 0xAA;
+        ARM11[i].FIQDisable = true;
+        ARM11[i].IRQDisable = true;
     }
-    return NULL;
 }
 
 void ARM11_UpdateMode(struct ARM11MPCore* ARM11, u8 oldmode, u8 newmode)
@@ -276,7 +277,7 @@ void ARM11_MSR(struct ARM11MPCore* ARM11, u32 val)
         val |= ARM11->CPSR & ~writemask;
         ARM11_UpdateMode(ARM11, ARM11->Mode, val&0x1F);
         ARM11->CPSR = val;
-        printf("ARM11 - CPSR UPDATE: %08X\n", ARM11->CPSR);
+        //printf("ARM11 - CPSR UPDATE: %08X\n", ARM11->CPSR);
     }
 }
 
@@ -330,7 +331,7 @@ u32 ARM11_CodeFetch(struct ARM11MPCore* ARM11)
 
 void ARM11_Branch(struct ARM11MPCore* ARM11, u32 addr, const bool restore)
 {
-#if 1
+#if 0
     if (addr != 0x00019220 &&
         addr != 0x0001920C &&
         //addr != 0x00018084 &&

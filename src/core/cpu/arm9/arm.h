@@ -3,11 +3,13 @@
 #include "../../utils.h"
 #include "../shared/arm.h"
 
+#define ITCM_PhySize    (32 * 1024)
+#define DTCM_PhySize    (16 * 1024)
 
 enum
 {
     MPU_NOACCESS  = 0,
-    MPU_READ =      1<<0,
+    MPU_READ =   1<<0,
     MPU_WRITE =  1<<1,
     MPU_EXEC =   1<<2,
     MPU_DCACHE = 1<<3,
@@ -226,7 +228,7 @@ struct ARM946E_S
         } ITCMRegion;
         u32 ProcessID;
     } CP15;
-    u32 ITCMMask;
+    u32 ITCMSize;
     u32 DTCMMask;
     u32 DTCMBase;
     union
@@ -237,17 +239,21 @@ struct ARM946E_S
     alignas(64) u32 RegionMask[8];
     alignas(32) u32 RegionBase[8];
     u8 RegionPerms[2][9];
+    u8 ITCM[ITCM_PhySize];
+    u8 DTCM[DTCM_PhySize];
+    u8 ICache;
+    u8 DCache;
+    struct Console* console;
 };
 
 extern void (*ARM9_InstrLUT[0x1000]) (struct ARM946E_S* ARM9);
 extern void (*THUMB9_InstrLUT[0x40]) (struct ARM946E_S* ARM9);
 
-extern struct ARM946E_S _ARM9;
-
 void* ARM9_InitARMInstrLUT(const u16 bits);
 void* ARM9_InitTHUMBInstrLUT(const u8 bits);
 
-char* ARM9_Init();
+void ARM9_HardReset(struct Console* console);
+
 void ARM9_UpdateMode(struct ARM946E_S* ARM9, u8 oldmode, u8 newmode);
 void ARM9_Branch(struct ARM946E_S* ARM9, const u32 addr, const bool restore);
 u32 ARM9_GetReg(struct ARM946E_S* ARM9, const int reg);
@@ -257,13 +263,15 @@ void ARM9_StartExec(struct ARM946E_S* ARM9);
 void THUMB9_StartExec(struct ARM946E_S* ARM9);
 void ARM9_RunInterpreter(struct ARM946E_S* ARM9, u64 target);
 
+void ARM9_MPU_Update(struct ARM946E_S* ARM9);
+void ARM9_MPU_PrintRGN(const struct ARM946E_S* ARM9);
 u8 ARM9_MPU_Lookup(const struct ARM946E_S* ARM9, const u32 addr);
 
 // exceptions
 void ARM9_UndefinedInstruction(struct ARM946E_S* ARM9);
 void ARM9_SupervisorCall(struct ARM946E_S* ARM9);
 void ARM9_PrefetchAbort(struct ARM946E_S* ARM9);
-void ARM9_DataAbort(struct ARM946E_S* ARM9);
+void ARM9_DataAbort(struct ARM946E_S* ARM9, const bool write, const u32 abortaddr);
 void ARM9_InterruptRequest(struct ARM946E_S* ARM9);
 
 // instr implementations

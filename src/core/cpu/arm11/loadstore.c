@@ -124,12 +124,12 @@ void ARM11_LDM_STM(struct ARM11MPCore* ARM11)
         int reg = stdc_trailing_zeros(rlist);
         rlist &= ~1<<reg;
 
-        if (p^u) base += 4;
+        if (p^!u) base += 4;
 
         if (l) ARM11_WriteReg(ARM11, reg, Bus11_Load32(ARM11, base), s, !ARM11->CP15.TBitLoadDisable);
         else Bus11_Store32(ARM11, base, ARM11_GetReg(ARM11, reg));
 
-        if (!(p^u)) base += 4;
+        if (!(p^!u)) base += 4;
     }
 
     if (s && !r15) ARM11_UpdateMode(ARM11, 0x10, ARM11->Mode); // restore actual mode's regs

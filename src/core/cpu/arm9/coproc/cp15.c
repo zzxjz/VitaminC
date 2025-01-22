@@ -11,13 +11,13 @@
 
 void ARM9_UpdateITCM(struct ARM946E_S* ARM9)
 {
-    if (!ARM9->CP15.Control.ITCM) ARM9->ITCMMask = 0xFFFFFFFF;
+    if (!ARM9->CP15.Control.ITCM) ARM9->ITCMSize = 0;
     else
     {
         u32 size = ARM9->CP15.ITCMRegion.Size;
         if (size < 3) size = 3; // checkme?
 
-        ARM9->ITCMMask = 0xFFFFFE00 << size;
+        ARM9->ITCMSize = 0x200 << size;
     }
 }
 
@@ -53,6 +53,7 @@ void ARM9_MPU_Update(struct ARM946E_S* ARM9)
         // thus ensuring that all accesses recieve the proper flags
         ARM9->RegionMask[0] = 0x00000000;
         ARM9->RegionBase[0] = 0x00000000;
+        return;
     }
 
     for (int i = 0; i < 8; i++)
@@ -144,10 +145,37 @@ void ARM9_MPU_Update(struct ARM946E_S* ARM9)
         u32 size = ARM9->CP15.MPURegion[i].Size + 1;
         if (size < 12) size = 12;
         ARM9->RegionMask[i] = 0xFFFFFFFF << size;
-        ARM9->RegionBase[i] = ARM9->CP15.MPURegion[i].Base << 12;
+        ARM9->RegionBase[i] = (ARM9->CP15.MPURegion[i].Base << 12) & ARM9->RegionMask[i];
 
         ARM9->RegionPerms[0][i] = userflags;
         ARM9->RegionPerms[1][i] = privflags;
+    }
+}
+
+bool ARM9_MPU_GetPerm(const struct ARM946E_S* ARM9, const u8 rgn, const u8 perm)
+{
+    return (ARM9->RegionPerms[ARM9->Mode!=MODE_USR][rgn] & perm);
+}
+
+void ARM9_MPU_PrintRGN(const struct ARM946E_S* ARM9)
+{
+    for (int i = 0; i < 8; i++)
+    {
+        u32 size = ARM9->CP15.MPURegion[i].Size + 1;
+        if (size < 12) size = 12;
+        const u32 start = ARM9->RegionBase[i];
+        const u8 perm = ARM9->RegionPerms[ARM9->Mode!=MODE_USR][i];
+
+        u8 permstring[7];
+        permstring[0] = ARM9_MPU_GetPerm(ARM9, i, MPU_READ  ) ? 'R' : '-';
+        permstring[1] = ARM9_MPU_GetPerm(ARM9, i, MPU_WRITE ) ? 'W' : '-';
+        permstring[2] = ARM9_MPU_GetPerm(ARM9, i, MPU_EXEC  ) ? 'X' : '-';
+        permstring[3] = ARM9_MPU_GetPerm(ARM9, i, MPU_ICACHE) ? 'I' : '-';
+        permstring[4] = ARM9_MPU_GetPerm(ARM9, i, MPU_DCACHE) ? 'D' : '-';
+        permstring[5] = ARM9_MPU_GetPerm(ARM9, i, MPU_BUFFER) ? 'B' : '-';
+        permstring[6] = 0;
+
+        printf("RGN%i: %08X - %08X | %s\n", i, start, (start+(1<<size))-1, permstring);
     }
 }
 
@@ -159,9 +187,9 @@ u8 ARM9_MPU_Lookup(const struct ARM946E_S* ARM9, const u32 addr)
     __m256i bases; memcpy(&bases, ARM9->RegionBase, sizeof(bases));
     __m256i masks; memcpy(&masks, ARM9->RegionMask, sizeof(masks));
 
-    u8 res = _mm256_movemask_ps(_mm256_castsi256_ps(_mm256_cmpeq_epi32(_mm256_and_si256(addrs, masks), bases)));
+    const u8 res = _mm256_movemask_ps(_mm256_castsi256_ps(_mm256_cmpeq_epi32(_mm256_and_si256(addrs, masks), bases)));
 
-    u8 region = stdc_trailing_zeros(res);
+    const u8 region = stdc_trailing_zeros(res);
 
     return ARM9->RegionPerms[ARM9->Mode != MODE_USR][region];
 #else
@@ -284,7 +312,7 @@ void ARM9_CP15_Store_Single(struct ARM946E_S* ARM9, u16 cmd, u32 val)
     {
         if (ARM9->Mode == MODE_USR) { printf("ARM9 - USR CP15 WRITE: %04X\n", cmd); break; }
         ARM9->Halted = true;
-        printf("ARM9 - CP15: WAIT FOR INTERRUPT!!!\n");
+        printf("ARM9 - CP15: WAIT FOR INTERRUPT!!! %08X\n", ARM9->PC);
         break;
     }
     case 0x0750:
