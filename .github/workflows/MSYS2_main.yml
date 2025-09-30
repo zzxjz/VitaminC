@@ -33,6 +33,7 @@ jobs:
     - name: Test executable
       shell: msys2 {0}
       run: |
+        dir
         cd VitaminC
         if [ -f VitaminC.exe ]; then
           echo "Build successful - VitaminC.exe created"
