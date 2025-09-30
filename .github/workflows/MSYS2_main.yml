@@ -1,0 +1,50 @@
+name: Windows Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-windows:
+    name: Build on Windows
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up MSYS2 and Clang
+      uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        install: >
+          clang
+          make
+          base-devel
+
+    - name: Build VitaminC
+      shell: msys2 {0}
+      run: |
+        cd VitaminC
+        make
+
+    - name: Test executable
+      shell: msys2 {0}
+      run: |
+        cd VitaminC
+        if [ -f VitaminC.exe ]; then
+          echo "Build successful - VitaminC.exe created"
+          file VitaminC.exe || echo "File command not available"
+        else
+          echo "Build failed - VitaminC.exe not found"
+          exit 1
+        fi
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: VitaminC-windows
+        path: VitaminC/VitaminC.exe
+        if-no-files-found: error
