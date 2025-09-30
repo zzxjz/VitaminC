@@ -27,8 +27,6 @@ jobs:
     - name: Build VitaminC
       shell: msys2 {0}
       run: |
-        ls
-        cd \D\a\VitaminC\VitaminC
         make
 
     - name: Test executable
